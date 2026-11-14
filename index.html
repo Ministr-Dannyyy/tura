@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1d6b4f">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Túry">
+<title>Túry – plánovač tras</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&display=swap">
+<style>
+:root{--bg:#f2f4f1;--panel:#fff;--ink:#14201b;--mute:#62726b;--line:#e1e7e2;--acc:#e8590c;--acc2:#1d6b4f;--chip:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1512;--panel:#16201c;--ink:#e8f0ec;--mute:#93a69d;--line:#27352f;--acc2:#6fd3a6;--chip:#16201c}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+h1,h2,.stat b{font-family:"Bricolage Grotesque",system-ui,sans-serif}
+.app{display:block}
+.mapbox{position:sticky;top:0;z-index:5;height:50vh;min-height:300px}
+#map{position:absolute;inset:0}
+.panel{background:var(--panel);padding:18px 16px calc(28px + env(safe-area-inset-bottom,0px));border-radius:18px 18px 0 0;margin-top:0;position:relative;z-index:6}
+h1{font-size:30px;line-height:1;margin:0 0 4px;font-weight:800;color:var(--acc2)}
+h1 em{display:block;font:500 14px system-ui,sans-serif;font-style:normal;color:var(--mute);margin-top:4px}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
+.head h1{margin:0}
+.acct{display:flex;align-items:center;gap:6px;font-size:13px;justify-content:flex-end;flex-wrap:wrap}
+.sec{padding:14px 0;border-top:1px solid var(--line)}
+.sec>summary,.planwin>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;font:700 17px "Bricolage Grotesque",system-ui,sans-serif}
+.sec>summary::-webkit-details-marker,.planwin>summary::-webkit-details-marker{display:none}
+.sec>summary::after,.planwin>summary::after{content:"▾";margin-left:auto;color:var(--mute);transition:transform .15s}
+.sec[open]>summary,.planwin[open]>summary{margin-bottom:10px}
+.sec[open]>summary::after,.planwin[open]>summary::after{transform:rotate(180deg)}
+.sec>summary:focus-visible,.planwin>summary:focus-visible{outline:3px solid var(--acc);outline-offset:3px;border-radius:6px}
+.planwin{position:absolute;z-index:1000;right:10px;bottom:10px;width:min(340px,calc(100% - 20px));max-height:calc(100% - 20px);overflow:auto;border-radius:14px;padding:10px 12px;background:var(--panel);color:var(--ink);box-shadow:0 2px 12px rgba(0,0,0,.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+@supports (background:color-mix(in srgb,red,blue)){.planwin{background:color-mix(in srgb,var(--panel) 80%,transparent)}}
+.planwin:not([open]){width:auto}
+.modal{position:fixed;inset:0;z-index:3000;background:rgba(10,20,16,.65);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px}
+.modal .box{max-height:calc(100vh - 32px);overflow:auto;background:var(--panel);color:var(--ink);border-radius:16px;padding:22px;width:100%;max-width:380px;box-shadow:0 8px 30px rgba(0,0,0,.45)}
+h2{font-size:17px;margin:0 0 10px;display:flex;align-items:center;gap:8px;font-weight:700}
+h2 i,summary i{font-style:normal;background:var(--acc2);color:var(--panel);width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+.hint{color:var(--mute);font-size:13px;margin:6px 0 0}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center}
+button,select,input{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-height:42px}
+input,select{border-color:#c9d3cd}
+@media (prefers-color-scheme:dark){input,select{border-color:#3a4b44}}
+button{cursor:pointer;font-weight:600}
+button.main{background:var(--acc);border-color:var(--acc);color:#fff}
+button.ghost{border-color:transparent;background:transparent;color:var(--acc2);padding:6px 8px;min-height:36px}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.fld{display:flex;gap:6px;margin-top:8px}.fld input{flex:1;min-width:0}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--bg);border-radius:12px;padding:10px 12px}
+.stat b{display:block;font-size:26px;line-height:1.1;font-weight:800}.stat span{font-size:12px;color:var(--mute)}
+#prof{display:block;width:100%;height:150px;margin-top:12px}
+ul{list-style:none;margin:0;padding:0}
+li{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+li:first-child{border-top:0}
+.chips{position:absolute;z-index:1000;top:calc(10px + env(safe-area-inset-top,0px));left:58px;right:60px;display:flex;flex-wrap:wrap;gap:6px}
+.chip input{position:absolute;opacity:0;pointer-events:none}
+.chip span{display:inline-block;background:var(--chip);color:var(--ink);padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;box-shadow:0 1px 5px rgba(0,0,0,.3);opacity:.7;cursor:pointer}
+.chip input:checked+span{opacity:1;outline:2px solid var(--acc2)}
+.chip input:focus-visible+span{outline:3px solid var(--acc)}
+.pill{position:absolute;z-index:1000;left:10px;bottom:44px;max-width:calc(100% - 70px);background:var(--panel);color:var(--ink);border-radius:12px;padding:6px 12px;box-shadow:0 1px 6px rgba(0,0,0,.3);font-size:13px;font-weight:600}
+.pill small{display:block;font-weight:400;color:var(--mute);font-size:11px}
+.logo{position:absolute;left:10px;bottom:10px;z-index:1000;background:#fff;padding:2px 6px;border-radius:6px;font-size:11px;color:#333;text-decoration:none}
+.logo img{height:20px;vertical-align:middle}
+.banner{background:var(--acc);color:#fff;padding:10px 12px;border-radius:12px;margin:0 0 12px;display:flex;gap:8px;justify-content:space-between;align-items:center;font-weight:600}
+.banner[hidden]{display:none}
+.chk2{display:flex;gap:6px;align-items:center;font-size:14px}
+.chk2 input{min-height:0;width:18px;height:18px;padding:0;accent-color:var(--acc)}
+.calhead{display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px}
+.calhead b{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-size:16px;text-transform:capitalize}
+#calGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.dow{font-size:11px;text-align:center;color:var(--mute)}
+.day{min-height:36px;padding:0;font-weight:500;border-radius:8px}
+.day.has{background:var(--acc2);border-color:var(--acc2);color:var(--panel);font-weight:700}
+.day.today{outline:2px solid var(--acc);outline-offset:-2px}
+.day.sel{box-shadow:0 0 0 2px var(--ink)}
+#plist li{flex-wrap:wrap}
+.leg{padding:8px 0 8px 14px;border-left:3px solid var(--acc2);margin-left:6px}
+.leg.walk{border-left-style:dashed;border-left-color:var(--mute)}
+.leg b{display:block;margin-bottom:2px}
+.leg .row2{font-size:14px}
+.leg details{margin-top:4px;font-size:13px;color:var(--mute)}
+.leg details div{padding:1px 0}
+.wait{font-size:12px;color:var(--mute);margin:2px 0 2px 20px}
+.fabs{position:absolute;z-index:1000;right:10px;top:calc(96px + env(safe-area-inset-top,0px));display:flex;flex-direction:column;gap:8px}
+.fab{width:44px;height:44px;min-height:44px;border-radius:50%;padding:0;font-size:22px;line-height:1;background:var(--panel);border:1px solid var(--line);box-shadow:0 1px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
+.fab:hover{background:var(--bg)}
+.toolhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.toolhead h1{margin:0;font-size:22px}
+.tclose{font-size:18px}
+.panelbtn{position:absolute;z-index:1000;top:calc(10px + env(safe-area-inset-top,0px));left:10px;width:40px;height:40px;min-height:40px;padding:0;border-radius:10px;font-size:20px;line-height:1;background:var(--panel);color:var(--ink);border:1px solid var(--line);box-shadow:0 1px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
+.app.ph .panel{display:none}
+.app.ph .mapbox{height:100vh;height:100dvh;min-height:300px}
+@media (min-width:900px){.app.ph{grid-template-columns:1fr}}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;margin:8px 0}
+.gal>div{position:relative}
+.gal img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;display:block;background:var(--bg)}
+.gal .x{position:absolute;top:3px;right:3px;min-height:24px;width:24px;padding:0;border-radius:50%;font-size:12px;background:rgba(0,0,0,.65);color:#fff;border:0}
+.rsvp .main,.rsvp button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.pin{background:var(--acc);color:#fff;border:2px solid #fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font:700 12px system-ui;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.poi{background:#fff;border:2px solid #1f3b34;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.pp{color:#1c2b27;min-width:170px}.pp b{display:block;font-size:15px}.pp small{display:block;margin:2px 0 6px}
+.pp button{min-height:32px;padding:4px 8px;font-size:13px;margin:2px 2px 0 0;background:#fff;color:#1c2b27;border:1px solid #bbb;border-radius:6px}
+@media (min-width:900px){
+.app{display:grid;grid-template-columns:430px 1fr;height:100vh}
+.panel{order:-1;height:100vh;overflow:auto;border-radius:0;margin:0;padding-top:24px}
+.mapbox{position:relative;height:100vh}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="mapbox">
+<div id="map"></div>
+<button class="panelbtn" id="panelBtn" title="Skrýt panel" aria-label="Skrýt panel" aria-pressed="false">☰</button>
+<div class="chips" id="chips">
+<label class="chip"><input type="checkbox" id="cPeak" checked><span>⛰ Vrcholy</span></label>
+<label class="chip"><input type="checkbox" id="cView" checked><span>🗼 Rozhledny a výhledy</span></label>
+<label class="chip"><input type="checkbox" id="cStation" checked><span>🚉 Nádraží a zastávky</span></label>
+</div>
+<div class="fabs" id="fabs">
+<button class="fab" data-tool="toolLib" title="Knihovna tras" aria-label="Knihovna tras">📚</button>
+<button class="fab" data-tool="toolCity" title="Trasy ve městě" aria-label="Trasy ve městě">🏙</button>
+<button class="fab" data-tool="toolHist" title="Historie túr a fotky" aria-label="Historie túr a fotky">📖</button>
+<button class="fab" data-tool="toolGo" title="Cesta na start" aria-label="Cesta na start">🚆</button>
+</div>
+<div class="pill"><span id="status">Přidej aspoň dva body.</span><small id="poiHint">Přibliž mapu, aby se zobrazila místa.</small></div>
+<details class="planwin" id="planwin">
+<summary>Plán a kalendář</summary>
+<div class="row" style="margin-top:0"><button id="pNew" class="main">+ Nová túra</button><button id="notif">Povolit upozornění</button></div>
+<p class="hint">Upozornění v aplikaci fungují, jen když je aplikace otevřená. Spolehlivé připomínky dostaneš přes Google Kalendář (tlačítko „Do Google“).</p>
+<div class="calhead"><button id="calPrev" class="ghost" aria-label="Předchozí měsíc">‹</button><b id="calTitle"></b><button id="calNext" class="ghost" aria-label="Další měsíc">›</button></div>
+<div id="calGrid"></div>
+<div class="row"><button id="calAll" class="ghost">Nadcházející túry</button></div>
+<ul id="plist"></ul>
+</details>
+<a class="logo" href="https://mapy.com/" target="_blank" rel="noopener"><img src="https://api.mapy.com/img/api/logo.svg" alt="Mapy.com"> © Seznam.cz a.s. a další</a>
+</div>
+
+<aside class="panel">
+<div class="head">
+<h1>Túry<em>Plánovač tras po stezkách</em></h1>
+<div class="acct">
+<button id="bInstall" class="ghost" hidden>⬇ Nainstalovat</button>
+<span id="accOut" hidden><b id="accName"></b> <button id="bLogout" class="ghost">Odhlásit</button></span>
+<span id="accLocal"><button id="bOpenLogin">Přihlásit se</button></span>
+</div>
+</div>
+<div class="banner" id="banner" hidden><span id="bannerTxt"></span><button id="bannerX" class="ghost" style="color:#fff">Zavřít</button></div>
+
+<details class="sec" id="adminSec" open hidden>
+<summary><i>A</i>Správa uživatelů</summary>
+<ul id="userList"></ul>
+<p class="hint">Noví uživatelé uvidí aplikaci až po tvém schválení.</p>
+</details>
+
+<details class="sec" open>
+<summary><i>1</i>Trasa</summary>
+<select id="type" aria-label="Typ trasy" style="width:100%">
+<option value="foot_hiking">Pěší túra (značené trasy)</option>
+<option value="foot_fast">Pěšky (nejrychleji)</option>
+<option value="bike_mountain">Horské kolo</option>
+<option value="bike_road">Silniční kolo</option>
+</select>
+<div class="fld"><input id="tStart" placeholder="Start" aria-label="Start"><button id="bStart">Nastavit</button></div>
+<div class="fld"><input id="tVia" placeholder="Přes" aria-label="Přes"><button id="bVia">Přidat</button></div>
+<div class="fld"><input id="tEnd" placeholder="Cíl" aria-label="Cíl"><button id="bEnd">Nastavit</button></div>
+<div class="row"><button id="undo" class="ghost">Zpět</button><button id="clear" class="ghost">Smazat trasu</button><button id="loc" class="ghost">Moje poloha</button></div>
+<div class="row" style="margin-top:0"><button id="bRev" class="ghost">⇄ Otočit</button><button id="bBack" class="ghost">↺ Tam a zpět</button><button id="bUnfix" class="ghost" hidden>✎ Upravit trasu</button></div>
+<p class="hint">Klepnutí na mapu přidá bod. Klepnutí na trasu přidá bod přes. Klepnutí na bod ho umožní smazat, tažením ho přesuneš.</p>
+</details>
+
+<details class="sec">
+<summary><i>2</i>Přehled</summary>
+<div class="stats">
+<div class="stat"><b id="sD">0 km</b><span>Délka</span></div>
+<div class="stat"><b id="sT">0:00</b><span>Odhad času</span></div>
+<div class="stat"><b id="sU">–</b><span>Nastoupáno</span></div>
+<div class="stat"><b id="sN">–</b><span>Naklesáno</span></div>
+</div>
+<canvas id="prof" aria-label="Výškový profil trasy"></canvas>
+</details>
+
+<details class="sec" open>
+<summary><i>3</i>Uložit trasu</summary>
+<div class="fld"><input id="nm" placeholder="Název trasy" maxlength="40" aria-label="Název trasy"><button id="save" class="main">Uložit</button></div>
+<div class="fld"><input id="rDesc" placeholder="Popis pro ostatní (nepovinné)" maxlength="140" aria-label="Popis trasy"></div>
+<div class="row"><button id="btnShare">Sdílet v knihovně</button><button id="gpx">Stáhnout GPX</button><button id="gpxIn">Importovat GPX</button><input type="file" id="gpxFile" accept=".gpx,.xml,application/gpx+xml" hidden></div>
+<p class="hint">„Uložit“ ukládá jen do tohoto zařízení. „Sdílet v knihovně“ trasu uvidí všichni přihlášení.</p>
+<ul id="list" style="margin-top:8px"></ul>
+</details>
+</aside>
+</div>
+
+<div class="modal" id="iosModal" role="dialog" aria-modal="true" aria-labelledby="iosT" hidden>
+<div class="box" style="max-width:380px">
+<h1 id="iosT" style="font-size:22px;margin-bottom:8px">Instalace na plochu</h1>
+<p style="margin:0 0 8px"><b>iPhone a iPad (Safari):</b> klepni na ikonu <b>Sdílet</b> (čtverec se šipkou nahoru) a zvol <b>Přidat na plochu</b>.</p>
+<p style="margin:0 0 12px"><b>Android (Chrome):</b> otevři menu ⋮ a zvol <b>Nainstalovat aplikaci</b> nebo <b>Přidat na plochu</b>.</p>
+<div class="row"><button id="iosClose" class="main">Rozumím</button></div>
+</div>
+</div>
+
+<div class="modal tool" id="toolHist" role="dialog" aria-modal="true" aria-labelledby="toolHistT" hidden>
+<div class="box" style="max-width:560px">
+<div class="toolhead"><h1 id="toolHistT">📖 Historie túr</h1><button class="ghost tclose" data-close aria-label="Zavřít">✕</button></div>
+<p class="hint" id="histMsg" style="margin:0 0 8px"></p>
+<ul id="histList"></ul>
+</div>
+</div>
+
+<div class="modal" id="photoModal" role="dialog" aria-modal="true" aria-label="Fotka" hidden>
+<div class="box" style="max-width:min(920px,96vw);padding:10px">
+<img id="photoImg" alt="Fotka z túry" style="max-width:100%;max-height:78vh;display:block;margin:0 auto;border-radius:10px">
+<div class="row" style="justify-content:center"><button id="photoClose" class="main">Zavřít</button></div>
+</div>
+</div>
+
+<div class="modal tool" id="toolLib" role="dialog" aria-modal="true" aria-labelledby="toolLibT" hidden>
+<div class="box" style="max-width:520px">
+<div class="toolhead"><h1 id="toolLibT">📚 Knihovna tras</h1><button class="ghost tclose" data-close aria-label="Zavřít">✕</button></div>
+<div class="fld"><input id="libQ" placeholder="Hledat trasu nebo autora" aria-label="Hledat v knihovně"></div>
+<ul id="lib" style="margin-top:8px"></ul>
+<p class="hint">Trasy vytvářejí sami uživatelé. Klepni na Načíst a trasu uvidíš na mapě.</p>
+</div>
+</div>
+
+<div class="modal tool" id="toolCity" role="dialog" aria-modal="true" aria-labelledby="toolCityT" hidden>
+<div class="box" style="max-width:520px">
+<div class="toolhead"><h1 id="toolCityT">🏙 Trasy ve městě</h1><button class="ghost tclose" data-close aria-label="Zavřít">✕</button></div>
+<div class="fld"><input id="cityQ" placeholder="Město (např. Olomouc)" aria-label="Město"><button id="cityBtn" class="main">Vytvořit</button></div>
+<p class="hint" id="cityMsg" style="margin:6px 0 0">Napiš město a aplikace navrhne trasy v okolí: výlety na vrcholy, rozhledny a výhledy a okruhy.</p>
+<ul id="cityList" style="margin-top:8px"></ul>
+</div>
+</div>
+
+<div class="modal tool" id="toolGo" role="dialog" aria-modal="true" aria-labelledby="toolGoT" hidden>
+<div class="box" style="max-width:520px">
+<div class="toolhead"><h1 id="toolGoT">🚆 Cesta na start</h1><button class="ghost tclose" data-close aria-label="Zavřít">✕</button></div>
+<div class="fld"><input id="from" placeholder="Odkud (prázdné = moje poloha)" aria-label="Odkud"></div>
+<div class="row"><select id="arr" aria-label="Čas"><option value="0">Odjezd po</option><option value="1">Příjezd na start do</option></select><input id="when" type="datetime-local" aria-label="Datum a čas"></div>
+<div class="row"><button id="pt" class="main">Najít spojení</button><button id="car">Autem na start</button><button id="idos">Vlaky v IDOS</button></div>
+<p class="hint" id="toStart">Nejdřív přidej start trasy.</p>
+<ul id="conn"></ul>
+<a id="gm" class="hint" target="_blank" rel="noopener" hidden>Otevřít spojení v Google Mapách</a>
+<a id="idosLink" class="hint" target="_blank" rel="noopener" hidden></a>
+<p class="hint">Hromadná doprava: <a href="https://transitous.org/sources/" target="_blank" rel="noopener">Transitous</a>, komunitní nekomerční služba (data z otevřených zdrojů a OpenStreetMap).</p>
+</div>
+</div>
+
+<div class="modal" id="connModal" role="dialog" aria-modal="true" aria-labelledby="cmTitle" hidden>
+<div class="box" style="max-width:460px">
+<h1 id="cmTitle" style="font-size:24px;margin-bottom:4px"></h1>
+<p class="hint" id="cmSum" style="margin:0 0 12px"></p>
+<div id="cmLegs"></div>
+<div class="row"><button id="cmClose" class="main">Zavřít</button></div>
+</div>
+</div>
+
+<div class="modal" id="hikeModal" role="dialog" aria-modal="true" aria-labelledby="hmTitle" hidden>
+<div class="box" style="max-width:420px">
+<h1 id="hmTitle" style="font-size:24px;margin-bottom:10px">Nová túra</h1>
+<div class="fld"><input id="pName" placeholder="Název túry" maxlength="60" aria-label="Název túry"></div>
+<div class="fld"><input id="pWhen" type="datetime-local" aria-label="Datum a čas túry"></div>
+<div class="fld"><select id="pRoute" style="width:100%" aria-label="Trasa"></select></div>
+<p class="hint" id="pRouteInfo"></p>
+<p class="hint" id="pWeather" style="margin-top:-4px"></p>
+<div class="row"><b style="font-size:13px">Upozornit:</b>
+<label class="chk2"><input type="checkbox" id="r1440" checked> den předem</label>
+<label class="chk2"><input type="checkbox" id="r120" checked> 2 h předem</label>
+<label class="chk2"><input type="checkbox" id="r30"> 30 min předem</label>
+</div>
+<div id="gOpts" hidden>
+<div class="row"><label class="chk2"><input type="checkbox" id="gAuto" checked> Přidat do Google Kalendáře</label></div>
+<div class="row" style="margin-top:4px"><label class="chk2"><input type="checkbox" id="gMail" checked> s e-mailovou připomínkou</label></div>
+<p class="hint">Při prvním použití se otevře přihlášení ke Google. E-mail s připomínkou pošle Google na adresu tohoto účtu.</p>
+</div>
+<p class="hint" id="pMsg" style="color:var(--acc);font-weight:600"></p>
+<div class="row"><button id="pAdd" class="main">Uložit túru</button><button id="pCancel" class="ghost">Zrušit</button></div>
+</div>
+</div>
+
+<div class="modal" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="lmTitle" hidden>
+<div class="box">
+<h1 id="lmTitle">Túry<em>Přihlášení</em></h1>
+<p class="hint" id="accOff" style="margin:0 0 8px" hidden>Databáze zatím není připojená, takže se přihlásit nedá. Můžeš pokračovat bez přihlášení a data zůstanou jen v tomto zařízení.</p>
+<div id="accIn">
+<div class="fld"><input id="aMail" type="email" placeholder="E-mail" autocomplete="email" aria-label="E-mail"></div>
+<div class="fld"><input id="aPass" type="password" placeholder="Heslo (aspoň 6 znaků)" autocomplete="current-password" aria-label="Heslo"></div>
+<div class="fld"><input id="aName" placeholder="Jméno (jen při registraci)" aria-label="Jméno"></div>
+<div class="row"><button id="bLogin" class="main">Přihlásit</button><button id="bReg">Registrovat</button></div>
+<div class="row"><button id="bGoogle" style="width:100%">Pokračovat přes Google</button></div>
+</div>
+<div id="lmPending" hidden>
+<p style="margin:0 0 10px"><b>Čekáš na schválení.</b> Registrace proběhla, přístup ti musí povolit admin. Až to udělá, klepni na „Zkontrolovat znovu“.</p>
+<div class="row"><button id="bRecheck" class="main">Zkontrolovat znovu</button><button id="bLogout2" class="ghost">Odhlásit</button></div>
+</div>
+<p class="hint" id="accMsg"></p>
+<div class="row"><button id="bSkip" class="ghost" hidden>Pokračovat bez přihlášení</button></div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+// Klíč v nastavení projektu na developer.mapy.com omezte jen na adresu, kde stránku hostujete.
+var API_KEY='_JVZQ61kZDu6Ur6IYHd_N40Ul9spaIFo2pRvzX5FDxI';
+var API='https://api.mapy.com/v1';
+var $=function(i){return document.getElementById(i)};
+
+var map=L.map('map',{renderer:L.canvas({tolerance:10}),doubleClickZoom:false,zoomControl:false}).setView([49.8,15.5],7);
+L.tileLayer(API+'/maptiles/outdoor/256/{z}/{x}/{y}?apikey='+API_KEY,{minZoom:0,maxZoom:19,attribution:''}).addTo(map);
+map.attributionControl.remove();L.control.zoom({position:'topright'}).addTo(map);['chips','planwin','fabs','panelBtn'].forEach(function(i){L.DomEvent.disableClickPropagation($(i));L.DomEvent.disableScrollPropagation($(i))});
+
+var pts=[],fixed=false,fixedEle=null,markers=[],line=null,coords=[],elev=[],seq=0,info={len:0,dur:0};
+
+function icon(n){return L.divIcon({className:'',html:'<div class="pin">'+n+'</div>',iconSize:[26,26],iconAnchor:[13,13]})}
+function mk(){markers.forEach(function(m){m.remove()});markers=[];
+if(fixed&&pts.length){[0,pts.length-1].forEach(function(i){markers.push(L.marker(pts[i],{icon:icon(i===0?'A':'B')}).addTo(map))});return}
+markers=pts.map(function(p,i){
+var m=L.marker(p,{icon:icon(i+1),draggable:true}).addTo(map);
+m.on('dragend',function(){pts[i]=m.getLatLng();plan()});m.on('click',function(ev){L.DomEvent.stopPropagation(ev);if(confirm('Smazat bod '+(i+1)+'?')){pts.splice(i,1);mk();plan()}});return m})}
+
+map.on('click',function(e){if(fixed){status('Trasa z GPX je pevná. Klepni na „Upravit trasu“, pak ji můžeš měnit.');return}pts.push(e.latlng);mk();plan()});
+$('undo').onclick=function(){if(fixed)return;pts.pop();mk();plan()};
+$('clear').onclick=function(){pts=[];fixed=false;fixedEle=null;if(toLine){toLine.remove();toLine=null}mk();plan()};
+$('type').onchange=plan;
+var posMark=null,posCirc=null;
+function showPos(c,acc){
+var ll0=L.latLng(c.latitude,c.longitude);
+if(posCirc)posCirc.remove();if(posMark)posMark.remove();
+posCirc=L.circle(ll0,{radius:Math.min(acc||0,500),color:'#1971c2',weight:1,fillOpacity:.12,interactive:false}).addTo(map);
+posMark=L.circleMarker(ll0,{radius:8,color:'#fff',weight:3,fillColor:'#1971c2',fillOpacity:1,interactive:false}).addTo(map);
+return ll0}
+function locate(auto){
+if(!navigator.geolocation){if(!auto)status('Prohlížeč nepodporuje zjištění polohy.');return}
+navigator.geolocation.getCurrentPosition(function(p){
+var ll0=showPos(p.coords,p.coords.accuracy);
+if(!auto||!pts.length)map.setView(ll0,14)
+},function(){if(!auto)status('Polohu se nepodařilo zjistit. Povol ji v nastavení prohlížeče.')},{timeout:10000,maximumAge:60000})}
+$('loc').onclick=function(){locate(false)};
+locate(true);
+
+function ll(p){return p.lng.toFixed(6)+','+p.lat.toFixed(6)}
+function status(t){$('status').textContent=t}
+
+async function plan(){
+var my=++seq;coords=[];elev=[];info={len:0,dur:0};
+if(line){line.remove();line=null}
+if(pts.length<2){status('Přidej aspoň dva body.');show();return}
+$('bUnfix').hidden=!fixed;
+if(!fixed)fixedEle=null;
+if(fixed){
+coords=pts.map(function(p){return[p.lat,p.lng]});
+var L1=ptsLen(coords),spd=/^bike/.test($('type').value)?15:4.5;
+info={len:L1,dur:L1/1000/spd*3600};
+line=L.polyline(coords,{color:'#e8590c',weight:5,opacity:.9,interactive:false}).addTo(map);
+status('Trasa z GPX je pevná. Upravit ji můžeš tlačítkem „Upravit trasu“.');show();
+if(fixedEle&&fixedEle.length===coords.length){
+var cum=[0],q;for(q=1;q<coords.length;q++)cum[q]=cum[q-1]+hav(coords[q-1],coords[q]);
+elev=fixedEle.map(function(e,k){return{d:cum[k],e:e}});show()}
+else loadElev(my);
+return}
+status('Počítám trasu…');
+var u=API+'/routing/route?apikey='+API_KEY+'&routeType='+$('type').value+'&format=geojson&lang=cs&start='+ll(pts[0])+'&end='+ll(pts[pts.length-1]);
+for(var i=1;i<pts.length-1;i++)u+='&waypoints='+ll(pts[i]);
+try{
+var r=await fetch(u);if(!r.ok)throw new Error('HTTP '+r.status);
+var d=await r.json();if(my!==seq)return;
+var g=d.geometry&&d.geometry.geometry?d.geometry.geometry:d.geometry;
+coords=g.coordinates.map(function(c){return[c[1],c[0]]});
+info={len:d.length,dur:d.duration};
+line=L.polyline(coords,{color:'#e8590c',weight:5,opacity:.9}).addTo(map);
+line.on('click',function(e){L.DomEvent.stopPropagation(e);insertVia(e.latlng)});
+if(pts.length<=2)map.fitBounds(line.getBounds(),{padding:[30,30]});
+status('Trasa nalezena.');show();
+loadElev(my)
+}catch(e){if(my===seq){status('Trasu se nepodařilo spočítat ('+e.message+'). Zkontroluj klíč a povolené domény.');show()}}
+}
+
+// Bod přes: klepnutí na trasu vloží nový bod mezi dva sousední body
+function insertVia(ll){
+var best=0,bd=1e18,i,k,j;
+for(i=0;i<coords.length;i++){var d=hav(coords[i],[ll.lat,ll.lng]);if(d<bd){bd=d;best=i}}
+var wp=[],from=0;
+for(k=0;k<pts.length;k++){var b=from,bb=1e18;for(j=from;j<coords.length;j++){var dd=hav(coords[j],[pts[k].lat,pts[k].lng]);if(dd<bb){bb=dd;b=j}}wp[k]=b;from=b}
+var leg=pts.length-2;
+for(k=0;k<pts.length-1;k++){if(best<=wp[k+1]){leg=k;break}}
+pts.splice(leg+1,0,ll);mk();plan()}
+
+function hav(a,b){var R=6371000,t=Math.PI/180,dl=(b[0]-a[0])*t,dn=(b[1]-a[1])*t,x=Math.sin(dl/2)**2+Math.cos(a[0]*t)*Math.cos(b[0]*t)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+
+async function loadElev(my){
+// Výšky: vzorek max. 100 bodů podél trasy. Při chybě se výšky jen nezobrazí.
+try{
+var n=Math.min(100,coords.length),idx=[],i;
+for(i=0;i<n;i++)idx.push(Math.round(i*(coords.length-1)/(n-1)));
+var u=API+'/elevation?apikey='+API_KEY;
+idx.forEach(function(k){u+='&positions='+coords[k][1].toFixed(6)+','+coords[k][0].toFixed(6)});
+var r=await fetch(u);if(!r.ok)throw 0;var d=await r.json();if(my!==seq)return;
+var items=d.items||d;var cum=[0];
+for(i=1;i<coords.length;i++)cum[i]=cum[i-1]+hav(coords[i-1],coords[i]);
+elev=items.map(function(it,j){return{d:cum[idx[j]],e:it.elevation}});
+show()}catch(e){elev=[];show()}}
+
+function fmt(s){var m=Math.round(s/60);return Math.floor(m/60)+':'+('0'+m%60).slice(-2)+' h'}
+function show(){
+$('sD').textContent=(info.len/1000).toFixed(1).replace('.',',')+' km';
+$('sT').textContent=info.dur?fmt(info.dur):'0:00';
+var up=0,dn=0;for(var i=1;i<elev.length;i++){var d=elev[i].e-elev[i-1].e;d>0?up+=d:dn-=d}
+$('sU').textContent=elev.length?Math.round(up)+' m':'–';$('sN').textContent=elev.length?Math.round(dn)+' m':'–';
+profile()}
+
+function profile(){
+var c=$('prof'),x=c.getContext('2d'),dp=window.devicePixelRatio||1,r=c.getBoundingClientRect();
+c.width=r.width*dp;c.height=r.height*dp;var w=c.width,h=c.height;
+var st=getComputedStyle(document.documentElement),mute=st.getPropertyValue('--mute'),ln=st.getPropertyValue('--line');
+x.fillStyle=mute;x.font=(12*dp)+'px system-ui';
+if(elev.length<2){x.fillText('Výškový profil se zobrazí po výpočtu trasy.',8*dp,h/2);return}
+var mn=1e9,mx=-1e9;elev.forEach(function(p){mn=Math.min(mn,p.e);mx=Math.max(mx,p.e)});
+mn=Math.floor(mn/10)*10-5;mx=Math.ceil(mx/10)*10+5;
+var L0=46*dp,B=20*dp,T=8*dp,R=8*dp,D=elev[elev.length-1].d||1;
+function X(v){return L0+v/D*(w-L0-R)}function Y(v){return T+(1-(v-mn)/(mx-mn))*(h-T-B)}
+x.strokeStyle=ln;[mn,(mn+mx)/2,mx].forEach(function(v){x.beginPath();x.moveTo(L0,Y(v));x.lineTo(w-R,Y(v));x.stroke();x.fillText(Math.round(v)+' m',2*dp,Y(v)+4*dp)});
+x.textAlign='right';x.fillText((D/1000).toFixed(1).replace('.',',')+' km',w-R,h-5*dp);x.textAlign='left';
+x.beginPath();x.moveTo(X(0),h-B);elev.forEach(function(p){x.lineTo(X(p.d),Y(p.e))});x.lineTo(X(D),h-B);x.fillStyle='rgba(232,89,12,.22)';x.fill();
+x.beginPath();elev.forEach(function(p,i){i?x.lineTo(X(p.d),Y(p.e)):x.moveTo(X(p.d),Y(p.e))});x.strokeStyle='#e8590c';x.lineWidth=2.5*dp;x.stroke()}
+window.addEventListener('resize',profile);
+
+// Zadávání bodů textem
+async function geo(q){
+var r=await fetch(API+'/geocode?apikey='+API_KEY+'&lang=cs&limit=1&query='+encodeURIComponent(q));
+if(!r.ok)throw new Error('HTTP '+r.status);
+var d=await r.json(),it=d.items&&d.items[0];
+if(!it)throw new Error('místo nenalezeno');
+return L.latLng(it.position.lat,it.position.lon)}
+function bindText(inp,btn,fn){
+async function go(){
+var q=$(inp).value.trim();if(!q)return;
+status('Hledám „'+q+'“…');
+try{var ll=await geo(q);if(fn(ll)===false)return;$(inp).value='';mk();plan()}
+catch(e){status('Nepodařilo se najít „'+q+'“ ('+e.message+').')}}
+$(btn).onclick=go;
+$(inp).addEventListener('keydown',function(e){if(e.key==='Enter')go()})}
+bindText('tStart','bStart',function(ll){if(pts.length)pts[0]=ll;else pts=[ll];if(pts.length===1)map.setView(ll,13)});
+bindText('tEnd','bEnd',function(ll){
+if(!pts.length){status('Nejdřív zadej start.');return false}
+if(pts.length===1)pts.push(ll);else pts[pts.length-1]=ll});
+bindText('tVia','bVia',function(ll){
+if(pts.length<2){status('Nejdřív zadej start a cíl.');return false}
+pts.splice(pts.length-1,0,ll)});
+
+// Místa na mapě (OpenStreetMap přes Overpass)
+var poiLayer=L.layerGroup().addTo(map),poiData=[],poiSeq=0,poiTimer=null;
+var PI={peak:['⛰','Vrchol','cPeak'],view:['🗼','Výhled','cView'],station:['🚉','Nádraží nebo železniční zastávka','cStation'],stop:['🚌','Autobusová zastávka','cStation']};
+function poiCat(t){
+if(t.natural==='peak')return'peak';
+if(t['tower:type']==='observation'||t.tourism==='viewpoint')return'view';
+if(t.railway==='station'||t.railway==='halt')return'station';
+if(t.highway==='bus_stop')return'stop';
+return null}
+function poiAct(kind,ll){
+if(kind==='start'){if(pts.length)pts[0]=ll;else pts=[ll]}
+else if(kind==='end'){
+if(!pts.length){status('Nejdřív nastav start.');map.closePopup();return}
+if(pts.length===1)pts.push(ll);else pts[pts.length-1]=ll}
+else{
+if(pts.length<2){status('Nejdřív nastav start a cíl.');map.closePopup();return}
+pts.splice(pts.length-1,0,ll)}
+map.closePopup();mk();plan()}
+function poiPopup(t,c,ll){
+var d=document.createElement('div');d.className='pp';
+var h=document.createElement('b');h.textContent=t.name;
+var m=document.createElement('small');
+var lab=c==='view'&&t['tower:type']==='observation'?'Rozhledna':PI[c][1];
+m.textContent=lab+(t.ele?', '+t.ele+' m n. m.':'');
+d.append(h,m);
+var url=t.website||t['contact:website'];
+if(!url&&t.wikipedia&&t.wikipedia.indexOf(':')>0){var w=t.wikipedia.split(':');url='https://'+w[0]+'.wikipedia.org/wiki/'+encodeURIComponent(w.slice(1).join(':'))}
+if(url&&/^https?:\/\//.test(url)){var a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.textContent='Další informace';a.style.display='block';a.style.marginBottom='6px';d.append(a)}
+[['start','Start'],['via','Přes'],['end','Cíl']].forEach(function(k){
+var b=document.createElement('button');b.textContent=k[1];b.onclick=function(){poiAct(k[0],ll)};d.append(b)});
+return d}
+function renderPoi(){
+poiLayer.clearLayers();
+poiData.forEach(function(e){
+var t=e.tags||{},c=poiCat(t);
+if(!c||!t.name||!$(PI[c][2]).checked)return;
+if(c==='stop'&&map.getZoom()<14)return;
+var lat=e.lat!==undefined?e.lat:e.center&&e.center.lat,lon=e.lon!==undefined?e.lon:e.center&&e.center.lon;
+if(lat===undefined||lon===undefined)return;
+var ll=L.latLng(lat,lon);
+L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="poi">'+PI[c][0]+'</div>',iconSize:[26,26],iconAnchor:[13,13]})}).bindPopup(poiPopup(t,c,ll)).addTo(poiLayer)})}
+var OVP=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+// Dotaz se pošle na první server, a když neodpoví do 1,5 s, spustí se další (vyhrává nejrychlejší)
+function fetchOverpass(q,signal){
+return new Promise(function(res,rej){
+var ctr=[],started={},done=false,out=0,last='neznámá chyba',url='?data='+encodeURIComponent(q);
+function fin(f){if(done)return;done=true;ctr.forEach(function(c){c.abort()});f()}
+if(signal)signal.addEventListener('abort',function(){fin(function(){rej(new DOMException('Aborted','AbortError'))})});
+function next(){for(var i=0;i<OVP.length;i++)if(!started[i]){start(i);return true}return false}
+function start(i){
+started[i]=1;out++;
+var c=new AbortController();ctr.push(c);
+fetch(OVP[i]+url,{signal:c.signal})
+.then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
+.then(function(d){fin(function(){res(d)})})
+.catch(function(e){if(done)return;last=e.message&&e.message.indexOf('HTTP')===0?e.message:'síť nebo blokování';out--;if(!next()&&out===0)fin(function(){rej(new Error(last))})});
+setTimeout(function(){if(!done)next()},i===0?1500:2500)}
+start(0)})}
+
+// Dlaždicová paměť míst: už stažené oblasti se berou z paměti (a z localStorage), stahují se jen chybějící
+var TB=[0.1,0.15],TS=[0.03,0.045],TTL=7*24*3600*1000,poiTiles={},poiAbort=null;
+try{var sv=JSON.parse(localStorage.getItem('poi-tiles-v1')||'{}');Object.keys(sv).forEach(function(k){if(Date.now()-sv[k].t<TTL)poiTiles[k]=sv[k]})}catch(e){}
+function persistTiles(){
+try{
+var ks=Object.keys(poiTiles).sort(function(x,y){return poiTiles[y].t-poiTiles[x].t}).slice(0,60),o={};
+ks.forEach(function(k){o[k]=poiTiles[k]});
+localStorage.setItem('poi-tiles-v1',JSON.stringify(o))}catch(e){}}
+function slimEl(e){
+var t=e.tags||{},k={},lat=e.lat!==undefined?e.lat:e.center&&e.center.lat,lon=e.lon!==undefined?e.lon:e.center&&e.center.lon;
+if(lat===undefined||lon===undefined)return null;
+['name','ele','natural','tourism','railway','highway','tower:type','website','contact:website','wikipedia'].forEach(function(x){if(t[x])k[x]=t[x]});
+return{lat:lat,lon:lon,tags:k}}
+function tileOK(k){return poiTiles[k]&&Date.now()-poiTiles[k].t<TTL}
+function tileList(vb,kind,onlyMissing){
+var st=kind==='b'?TB:TS,out=[];
+for(var i=Math.floor(vb.getSouth()/st[0]);i<=Math.floor(vb.getNorth()/st[0]);i++)
+for(var j=Math.floor(vb.getWest()/st[1]);j<=Math.floor(vb.getEast()/st[1]);j++){
+var k=kind+':'+i+':'+j;if(!onlyMissing||!tileOK(k))out.push([i,j,k])}
+return out}
+function collectTiles(vb,stops){
+var out=[];
+tileList(vb,'b',false).forEach(function(t){if(poiTiles[t[2]])out=out.concat(poiTiles[t[2]].d)});
+if(stops)tileList(vb,'s',false).forEach(function(t){if(poiTiles[t[2]])out=out.concat(poiTiles[t[2]].d)});
+return out}
+async function fetchTiles(kind,list,signal){
+var st=kind==='b'?TB:TS;
+if(list.length>20)list=list.slice(0,20);
+var i0=1e9,i1=-1e9,j0=1e9,j1=-1e9;
+list.forEach(function(t){i0=Math.min(i0,t[0]);i1=Math.max(i1,t[0]);j0=Math.min(j0,t[1]);j1=Math.max(j1,t[1])});
+var bb=[i0*st[0],j0*st[1],(i1+1)*st[0],(j1+1)*st[1]].map(function(x){return x.toFixed(5)}).join(',');
+var q=kind==='b'
+?'[out:json][timeout:20];(node["natural"="peak"]["name"]('+bb+');nwr["tower:type"="observation"]["name"]('+bb+');node["tourism"="viewpoint"]["name"]('+bb+');nwr["railway"~"^(station|halt)$"]["name"]('+bb+'););out center tags 2000;'
+:'[out:json][timeout:20];node["highway"="bus_stop"]["name"]('+bb+');out tags center 3000;';
+var d=await fetchOverpass(q,signal),now=Date.now(),i,j;
+for(i=i0;i<=i1;i++)for(j=j0;j<=j1;j++)poiTiles[kind+':'+i+':'+j]={t:now,d:[]};
+(d.elements||[]).forEach(function(e){
+var x=slimEl(e);if(!x)return;
+var t=poiTiles[kind+':'+Math.floor(x.lat/st[0])+':'+Math.floor(x.lon/st[1])];
+if(t)t.d.push(x)});
+persistTiles()}
+function poiHintOk(){
+$('poiHint').textContent='Klepni na místo pro informace.'+(map.getZoom()<14&&$('cStation').checked?' Autobusové zastávky se ukážou po dalším přiblížení.':'')+' Data míst: © přispěvatelé OpenStreetMap.'}
+async function loadPoi(){
+var my=++poiSeq,hint=$('poiHint');
+if(poiAbort)poiAbort.abort();
+if(map.getZoom()<12){poiData=[];renderPoi();hint.textContent='Přibliž mapu (aspoň úroveň 12), aby se zobrazila místa.';return}
+var vb=map.getBounds().pad(0.1),stops=map.getZoom()>=14;
+poiData=collectTiles(vb,stops);renderPoi();
+var jobs=[],ctl=new AbortController();poiAbort=ctl;
+var mb=tileList(vb,'b',true),ms=stops?tileList(vb,'s',true):[];
+function done(){if(my===poiSeq){poiData=collectTiles(map.getBounds().pad(0.1),map.getZoom()>=14);renderPoi()}}
+if(mb.length)jobs.push(fetchTiles('b',mb,ctl.signal).then(done));
+if(ms.length)jobs.push(fetchTiles('s',ms,ctl.signal).then(done));
+if(!jobs.length){poiHintOk();return}
+hint.textContent='Načítám místa…';
+try{await Promise.all(jobs);if(my===poiSeq)poiHintOk()}
+catch(e){if(e.name==='AbortError'||my!==poiSeq)return;hint.textContent='Některá místa se nepodařilo načíst ('+e.message+'). To, co už je stažené, zůstává zobrazené.'}}
+map.on('moveend',function(){clearTimeout(poiTimer);poiTimer=setTimeout(loadPoi,350)});
+['cPeak','cView','cStation'].forEach(function(i){$(i).onchange=renderPoi});
+loadPoi();
+
+// Cesta na start
+var toLine=null;
+function noStart(){if(!pts.length){$('toStart').textContent='Nejdřív přidej start trasy.';return true}return false}
+$('car').onclick=async function(){
+if(noStart())return;
+$('toStart').textContent='Hledám výchozí místo…';
+try{
+var h=await origin(),q=$('from').value.trim();
+var u=API+'/routing/route?apikey='+API_KEY+'&routeType=car_fast&format=geojson&lang=cs&start='+ll(h)+'&end='+ll(pts[0]);
+var r=await fetch(u);if(!r.ok)throw new Error('HTTP '+r.status);
+var d=await r.json();
+var g=d.geometry&&d.geometry.geometry?d.geometry.geometry:d.geometry;
+if(toLine)toLine.remove();
+toLine=L.polyline(g.coordinates.map(function(c){return[c[1],c[0]]}),{color:'#1971c2',weight:4,dashArray:'8 8'}).addTo(map);
+$('toStart').textContent='Autem z '+(q?'„'+q+'“':'tvé polohy')+' na start: '+(d.length/1000).toFixed(1).replace('.',',')+' km, asi '+fmt(d.duration)+'.';
+status($('toStart').textContent);closeTools();
+map.fitBounds(toLine.getBounds(),{padding:[30,30]})
+}catch(e){$('toStart').textContent='Cestu na start se nepodařilo spočítat ('+e.message+').'}};
+// Skrytí hlavního panelu
+function setPanel(hide){
+document.querySelector('.app').classList.toggle('ph',hide);
+var b=$('panelBtn');b.setAttribute('aria-pressed',hide?'true':'false');
+b.title=hide?'Zobrazit panel':'Skrýt panel';b.setAttribute('aria-label',b.title);
+try{localStorage.setItem('panel-hidden',hide?'1':'0')}catch(e){}
+setTimeout(function(){map.invalidateSize();profile()},60)}
+$('panelBtn').onclick=function(){setPanel(!document.querySelector('.app').classList.contains('ph'))};
+try{if(localStorage.getItem('panel-hidden')==='1')setPanel(true)}catch(e){}
+
+// Okna nástrojů (knihovna, města, cesta na start)
+function closeTools(){document.querySelectorAll('.modal.tool').forEach(function(m){m.hidden=true})}
+function openTool(id){
+closeTools();var m=$(id);m.hidden=false;if(id==='toolHist')renderHist();
+var f=m.querySelector('input,select');if(f)setTimeout(function(){f.focus()},50)}
+document.querySelectorAll('[data-tool]').forEach(function(b){b.onclick=function(){openTool(b.getAttribute('data-tool'))}});
+document.querySelectorAll('[data-close]').forEach(function(b){b.onclick=closeTools});
+document.querySelectorAll('.modal.tool').forEach(function(m){m.addEventListener('click',function(e){if(e.target===m)closeTools()})});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeTools()});
+
+// Podrobnosti spojení v okně
+var MICON={WALK:'🚶',BUS:'🚌',TRAM:'🚋',SUBWAY:'🚇',FERRY:'⛴'};
+function micon(m){return MICON[m]||(/RAIL|TRAIN|SUBURBAN|LONG_DISTANCE/.test(m)?'🚆':'🚍')}
+function pname(p,first){
+var n=p&&p.name;
+if(n==='START')return 'Výchozí místo';
+if(n==='END')return 'Start trasy';
+return n||(first?'Výchozí místo':'Cíl')}
+function ptrack(p){return p&&(p.track||p.scheduledTrack)?' · nástupiště '+(p.track||p.scheduledTrack):''}
+function showConn(it){
+$('cmTitle').textContent=hm(it.startTime)+' → '+hm(it.endTime);
+$('cmSum').textContent='Celkem '+fmt(it.duration)+' · přestupů: '+(it.transfers||0)+' · cíl je start tvé trasy';
+var box=$('cmLegs');box.innerHTML='';
+var legs=it.legs||[];
+legs.forEach(function(l,i){
+if(i>0&&l.mode!=='WALK'&&legs[i-1].mode!=='WALK'){
+var gap=Math.round((new Date(l.startTime)-new Date(legs[i-1].endTime))/60000);
+if(gap>0){var w=document.createElement('div');w.className='wait';w.textContent='Přestup, čekání '+gap+' min';box.append(w)}}
+var d=document.createElement('div');d.className='leg'+(l.mode==='WALK'?' walk':'');
+var mins=Math.max(1,Math.round((new Date(l.endTime)-new Date(l.startTime))/60000));
+var t=document.createElement('b');
+t.textContent=l.mode==='WALK'
+?'🚶 Pěšky '+mins+' min'+(l.distance?' ('+Math.round(l.distance)+' m)':'')
+:micon(l.mode)+' '+modeName(l.mode)+' '+(l.routeShortName||l.displayName||'')+(l.headsign?' → '+l.headsign:'');
+var r1=document.createElement('div');r1.className='row2';r1.textContent=hm(l.startTime)+'  '+pname(l.from,i===0)+ptrack(l.from);
+var r2=document.createElement('div');r2.className='row2';r2.textContent=hm(l.endTime)+'  '+pname(l.to,false)+ptrack(l.to)+'  ('+mins+' min)';
+d.append(t,r1);
+var st=l.intermediateStops||[];
+if(st.length){
+var dt=document.createElement('details'),sm=document.createElement('summary');
+sm.textContent='Zastávky po cestě ('+st.length+')';dt.append(sm);
+st.forEach(function(x){var e=document.createElement('div');var tm=x.departure||x.arrival||x.scheduledDeparture||x.scheduledArrival;e.textContent=(tm?hm(tm)+'  ':'')+(x.name||'');dt.append(e)});
+d.append(dt)}
+d.append(r2);
+if(l.agencyName){var ag=document.createElement('div');ag.className='hint';ag.style.margin='2px 0 0';ag.textContent='Dopravce: '+l.agencyName;d.append(ag)}
+box.append(d)});
+$('connModal').hidden=false}
+function closeConn(){$('connModal').hidden=true}
+$('cmClose').onclick=closeConn;
+$('connModal').addEventListener('click',function(e){if(e.target===$('connModal'))closeConn()});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('connModal').hidden)closeConn()});
+
+// Hromadná doprava přes Transitous
+$('when').value=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
+function origin(){
+var q=$('from').value.trim();
+if(q)return fetch(API+'/geocode?apikey='+API_KEY+'&lang=cs&limit=1&query='+encodeURIComponent(q)).then(function(r){return r.json()}).then(function(d){
+var it=d.items&&d.items[0];if(!it)throw new Error('adresa nenalezena');return L.latLng(it.position.lat,it.position.lon)});
+return new Promise(function(ok,no){
+if(!navigator.geolocation)return no(new Error('poloha není dostupná'));
+navigator.geolocation.getCurrentPosition(function(p){ok(L.latLng(p.coords.latitude,p.coords.longitude))},function(){no(new Error('poloha není povolená'))},{timeout:15000})})}
+var MODE={WALK:'pěšky',BUS:'autobus',TRAM:'tramvaj',SUBWAY:'metro',FERRY:'přívoz'};
+function modeName(m){return MODE[m]||(/RAIL|TRAIN|SUBURBAN|LONG_DISTANCE/.test(m)?'vlak':m.toLowerCase())}
+function hm(x){return new Date(x).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}
+$('pt').onclick=async function(){
+if(noStart())return;
+var ul=$('conn');ul.innerHTML='';$('gm').hidden=true;$('toStart').textContent='Hledám spojení…';
+var dest=pts[0].lat.toFixed(6)+','+pts[0].lng.toFixed(6);
+try{
+var h=await origin();
+var t=$('when').value?new Date($('when').value):new Date();
+var u='https://api.transitous.org/api/v6/plan?fromPlace='+h.lat.toFixed(6)+','+h.lng.toFixed(6)+'&toPlace='+dest+'&time='+encodeURIComponent(t.toISOString())+'&arriveBy='+($('arr').value==='1')+'&numItineraries=4&language=cs';
+var r=await fetch(u);if(!r.ok)throw new Error('HTTP '+r.status);
+var its=(await r.json()).itineraries||[];
+if(!its.length){$('toStart').textContent='Spojení nenalezeno. Zkus jiný čas nebo výchozí místo.';return}
+$('toStart').textContent='Spojení na start:';
+its.forEach(function(it){
+var li=document.createElement('li');li.style.display='block';
+var a=document.createElement('b');a.textContent=hm(it.startTime)+' → '+hm(it.endTime)+' ('+fmt(it.duration)+', přestupů: '+(it.transfers||0)+')';
+var b=document.createElement('div');b.className='hint';b.style.margin='2px 0 0';
+b.textContent=(it.legs||[]).map(function(l){
+if(l.mode==='WALK'){var m=Math.max(1,Math.round((new Date(l.endTime)-new Date(l.startTime))/60000));return 'pěšky '+m+' min'}
+return modeName(l.mode)+' '+(l.routeShortName||l.displayName||'')+(l.headsign?' → '+l.headsign:'')+' ('+hm(l.startTime)+')'}).join(' · ');
+var bt=document.createElement('button');bt.textContent='Rozepsat spojení ›';bt.className='ghost';bt.style.padding='4px 0';
+li.style.cursor='pointer';li.onclick=function(){showConn(it)};
+li.append(a,b,bt);ul.append(li)})
+}catch(e){
+$('toStart').textContent='Spojení se nepodařilo načíst ('+e.message+').';
+$('gm').href='https://www.google.com/maps/dir/?api=1&destination='+dest+'&travelmode=transit';$('gm').hidden=false}};
+
+// IDOS: české vlaky a autobusy (otevře se na jejich stránce)
+async function nameOf(ll){
+var r=await fetch(API+'/rgeocode?apikey='+API_KEY+'&lang=cs&lon='+ll.lng.toFixed(6)+'&lat='+ll.lat.toFixed(6));
+if(!r.ok)throw new Error('HTTP '+r.status);
+var its=(await r.json()).items||[];
+var m=its.filter(function(i){return /municipality/.test(i.type||'')})[0]||its[0];
+if(!m)throw new Error('název místa nenalezen');
+return m.name}
+$('idos').onclick=async function(){
+if(noStart())return;
+var a=$('idosLink');a.hidden=true;$('toStart').textContent='Připravuji hledání v IDOS…';
+try{
+var q=$('from').value.trim(),f=q||await nameOf(await origin()),t=await nameOf(pts[0]);
+var u='https://idos.cz/vlakyautobusymhdvse/spojeni/?f='+encodeURIComponent(f)+'&t='+encodeURIComponent(t)+'&submit=true';
+var w=$('when').value;
+if(w){var D=new Date(w);u+='&date='+D.getDate()+'.'+(D.getMonth()+1)+'.'+D.getFullYear()+'&time='+hm(D)}
+a.href=u;a.textContent='Otevřít v IDOS: '+f+' → '+t;a.hidden=false;
+$('toStart').textContent='Připraveno.'
+}catch(e){$('toStart').textContent='IDOS se nepodařilo připravit ('+e.message+').'}};
+
+// Účet a sdílená knihovna tras (Supabase). Bez vyplněné adresy a klíče běží aplikace jen lokálně.
+var SB_URL='',SB_KEY='';   // sem vložte Project URL a anon (public) key
+var sb=(SB_URL&&SB_KEY&&window.supabase)?window.supabase.createClient(SB_URL,SB_KEY):null;
+var me=null,myProf=null,libData=[],skipped=false,sessionChecked=!sb;
+function accMsg(t){$('accMsg').textContent=t||''}
+function okUser(){return !!(me&&myProf&&(myProf.approved||myProf.is_admin))}
+function accUI(){
+var modal=$('loginModal'),was=modal.hidden,pending=!!(sb&&me&&!okUser());
+var show=sb?(sessionChecked&&!okUser()):!skipped;
+modal.hidden=!show;
+$('accOff').hidden=!!sb;$('accIn').hidden=!sb||!!me;$('bSkip').hidden=!!sb;$('lmPending').hidden=!pending;
+$('accOut').hidden=!me;$('accLocal').hidden=!!me;
+$('accName').textContent=me?((myProf&&myProf.name)||me.email)+(myProf&&myProf.is_admin?' (admin)':''):'';
+$('adminSec').hidden=!(myProf&&myProf.is_admin);
+$('btnShare').hidden=!sb;
+if(show&&was&&sb&&!me)setTimeout(function(){$('aMail').focus()},50)}
+async function setUser(session){
+sessionChecked=true;me=session?session.user:null;myProf=null;
+if(me){var r=await sb.from('profiles').select('name,is_admin,approved').eq('id',me.id).single();myProf=r.data}
+accUI();loadLib();loadUsers();loadPlans()}
+if(sb){
+sb.auth.getSession().then(function(r){setUser(r.data.session)}).catch(function(){sessionChecked=true;accUI()});
+sb.auth.onAuthStateChange(function(ev,ses){if(ev==='SIGNED_IN'||ev==='SIGNED_OUT')setTimeout(function(){setUser(ses)},0)})}
+$('bLogin').onclick=async function(){
+accMsg('Přihlašuji…');
+var r=await sb.auth.signInWithPassword({email:$('aMail').value.trim(),password:$('aPass').value});
+accMsg(r.error?'Přihlášení se nepovedlo: '+r.error.message:'')};
+$('bReg').onclick=async function(){
+accMsg('Registruji…');
+var r=await sb.auth.signUp({email:$('aMail').value.trim(),password:$('aPass').value,options:{data:{name:$('aName').value.trim()}}});
+if(r.error){accMsg('Registrace se nepovedla: '+r.error.message);return}
+accMsg(r.data.session?'':'Zkontroluj e-mail a potvrď registraci, pak se přihlas.')};
+$('bLogout').onclick=function(){sb.auth.signOut()};
+
+function libMsg(t){var ul=$('lib');ul.innerHTML='';var li=document.createElement('li');li.className='hint';li.textContent=t;ul.append(li)}
+async function loadLib(){
+if(!sb){libMsg('Knihovna se zobrazí po připojení k databázi.');return}
+if(!me){libMsg('Přihlas se, abys viděl trasy ostatních.');return}
+if(!okUser()){libMsg('Čeká se na schválení adminem.');return}
+var r=await sb.from('routes').select('id,name,description,route_type,len_m,dur_s,pts,created_by,profiles(name)').order('created_at',{ascending:false}).limit(100);
+if(r.error){libMsg('Trasy se nepodařilo načíst ('+r.error.message+').');return}
+libData=r.data||[];renderLib()}
+function authorOf(x){var a=Array.isArray(x.profiles)?x.profiles[0]:x.profiles;return a&&a.name?a.name:'neznámý'}
+function renderLib(){
+var q=$('libQ').value.trim().toLowerCase(),ul=$('lib');ul.innerHTML='';
+var items=libData.filter(function(x){return !q||(x.name+' '+(x.description||'')+' '+authorOf(x)).toLowerCase().indexOf(q)>=0});
+if(!items.length){libMsg(libData.length?'Nic neodpovídá hledání.':'Zatím tu nejsou žádné trasy. Buď první, kdo nějakou sdílí.');return}
+items.forEach(function(x){
+var li=document.createElement('li');li.style.display='block';
+var t=document.createElement('b');t.textContent=x.name;
+var m=document.createElement('div');m.className='hint';m.style.margin='2px 0 6px';
+m.textContent=authorOf(x)+' · '+(x.len_m/1000).toFixed(1).replace('.',',')+' km'+(x.description?' · '+x.description:'');
+var b1=document.createElement('button');b1.textContent='Načíst';
+b1.onclick=function(){
+closeTools();
+fixed=x.pts.length>30;fixedEle=null;pts=x.pts.map(function(q){return L.latLng(q[0],q[1])});$('type').value=x.route_type;$('nm').value=x.name;mk();
+window.scrollTo({top:0,behavior:'smooth'});
+plan().then(function(){if(line)map.fitBounds(line.getBounds(),{padding:[30,30]})})};
+li.append(t,m,b1);
+if(me&&(x.created_by===me.id||(myProf&&myProf.is_admin))){
+var b2=document.createElement('button');b2.textContent='Smazat';b2.style.marginLeft='6px';
+b2.onclick=async function(){
+if(!confirm('Smazat trasu „'+x.name+'“?'))return;
+var r=await sb.from('routes').delete().eq('id',x.id);
+if(r.error)status('Smazání se nepovedlo ('+r.error.message+').');loadLib()};
+li.append(b2)}
+ul.append(li)})}
+$('libQ').addEventListener('input',renderLib);
+$('btnShare').onclick=async function(){
+if(!me){status('Nejdřív se přihlas.');return}
+if(pts.length<2||!info.len){status('Nejdřív naplánuj trasu.');return}
+var r=await sb.from('routes').insert({name:$('nm').value.trim()||'Trasa',description:$('rDesc').value.trim()||null,route_type:$('type').value,len_m:Math.round(info.len),dur_s:Math.round(info.dur||0),pts:pts.map(function(p){return[p.lat,p.lng]})});
+status(r.error?'Sdílení se nepovedlo ('+r.error.message+').':'Trasa je ve sdílené knihovně.');
+if(!r.error)loadLib()};
+$('bSkip').onclick=function(){skipped=true;accUI()};
+$('bGoogle').onclick=function(){sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}})};
+$('bRecheck').onclick=function(){sb.auth.getSession().then(function(r){setUser(r.data.session)})};
+$('bLogout2').onclick=function(){sb.auth.signOut()};
+async function loadUsers(){
+if(!sb||!myProf||!myProf.is_admin)return;
+var r=await sb.from('profiles').select('id,name,email,approved,is_admin').order('approved').order('created_at',{ascending:false});
+var ul=$('userList');ul.innerHTML='';
+if(r.error){var e=document.createElement('li');e.className='hint';e.textContent='Uživatele se nepodařilo načíst ('+r.error.message+').';ul.append(e);return}
+var wait=0;
+(r.data||[]).forEach(function(u){
+var li=document.createElement('li');li.style.display='block';
+var t=document.createElement('b');t.textContent=u.name;
+var m=document.createElement('div');m.className='hint';m.style.margin='2px 0 6px';
+m.textContent=(u.email||'')+' · '+(u.is_admin?'admin':u.approved?'schválen':'čeká na schválení');
+li.append(t,m);
+if(!u.approved&&!u.is_admin){wait++;
+var b=document.createElement('button');b.textContent='Schválit';b.className='main';
+b.onclick=async function(){var x=await sb.from('profiles').update({approved:true}).eq('id',u.id);if(x.error)status('Schválení se nepovedlo ('+x.error.message+').');loadUsers()};li.append(b)}
+else if(u.approved&&!u.is_admin){
+var b2=document.createElement('button');b2.textContent='Odebrat přístup';
+b2.onclick=async function(){var x=await sb.from('profiles').update({approved:false}).eq('id',u.id);if(x.error)status('Změna se nepovedla ('+x.error.message+').');loadUsers()};li.append(b2)}
+ul.append(li)});
+if(wait){$('bannerTxt').textContent='Čeká na schválení: '+wait+' '+(wait===1?'uživatel':'uživatelé');$('banner').hidden=false;status($('bannerTxt').textContent)}}
+$('bOpenLogin').onclick=function(){skipped=false;accUI()};
+$('aPass').addEventListener('keydown',function(e){if(e.key==='Enter')$('bLogin').click()});
+document.querySelectorAll('details.sec').forEach(function(d){d.addEventListener('toggle',profile)});
+$('planwin').open=false;
+accUI();loadLib();
+
+// Google Kalendář. Bez GOOGLE_CLIENT_ID se použije jen odkaz „Přidat do kalendáře“ (bez přihlášení).
+var GOOGLE_CLIENT_ID='';   // sem vložte OAuth Client ID z Google Cloud
+var gTok=null,gExp=0;
+$('gOpts').hidden=!GOOGLE_CLIENT_ID;
+function gReady(){return !!(GOOGLE_CLIENT_ID&&window.google&&google.accounts&&google.accounts.oauth2)}
+function gAuth(){return new Promise(function(ok,no){
+if(gTok&&Date.now()<gExp-60000)return ok(gTok);
+if(!gReady())return no(new Error('Google se ještě nenačetl'));
+var c=google.accounts.oauth2.initTokenClient({
+client_id:GOOGLE_CLIENT_ID,scope:'https://www.googleapis.com/auth/calendar.events',
+callback:function(r){if(r.error)return no(new Error(r.error));gTok=r.access_token;gExp=Date.now()+r.expires_in*1000;ok(gTok)},
+error_callback:function(e){no(new Error(e&&e.type?e.type:'přihlášení zrušeno'))}});
+c.requestAccessToken()})}
+function gBody(p){
+var st=new Date(p.when),en=new Date(st.getTime()+(p.dur?p.dur*1000:3*3600000)),tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+var la=p.pts[0][0].toFixed(5),lo=p.pts[0][1].toFixed(5),rem=p.rem||[],ov=[];
+rem.forEach(function(m){ov.push({method:'popup',minutes:m})});
+if($('gMail').checked&&rem.length)ov.push({method:'email',minutes:Math.max.apply(null,rem)});
+return{summary:'Túra: '+p.name,location:la+', '+lo,
+description:'Délka '+(p.len/1000).toFixed(1)+' km. Start: https://mapy.com/zakladni?x='+lo+'&y='+la+'&z=16',
+start:{dateTime:st.toISOString(),timeZone:tz},end:{dateTime:en.toISOString(),timeZone:tz},
+reminders:{useDefault:false,overrides:ov}}}
+async function gAdd(p){
+var t=await gAuth();
+var r=await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events',{method:'POST',headers:{Authorization:'Bearer '+t,'Content-Type':'application/json'},body:JSON.stringify(gBody(p))});
+if(!r.ok)throw new Error('HTTP '+r.status);
+var d=await r.json(),a=lp();
+a.forEach(function(x){if(x.id===p.id)x.gid=d.id});sp(a);p.gid=d.id;gidSet(p.id,d.id);return d}
+async function gDel(p){
+if(!p.gid||!gTok||Date.now()>=gExp)return;
+try{await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events/'+encodeURIComponent(p.gid),{method:'DELETE',headers:{Authorization:'Bearer '+gTok}})}catch(e){}}
+function gTemplate(p){
+var st=new Date(p.when),en=new Date(st.getTime()+(p.dur?p.dur*1000:3*3600000));
+function f(d){return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T'+pad(d.getHours())+pad(d.getMinutes())+'00'}
+var la=p.pts[0][0].toFixed(5),lo=p.pts[0][1].toFixed(5);
+return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('Túra: '+p.name)+'&dates='+f(st)+'/'+f(en)+'&ctz='+encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)+'&location='+encodeURIComponent(la+', '+lo)+'&details='+encodeURIComponent('Délka '+(p.len/1000).toFixed(1)+' km. Start: https://mapy.com/zakladni?x='+lo+'&y='+la+'&z=16')}
+function gSend(p){
+if(!GOOGLE_CLIENT_ID){window.open(gTemplate(p),'_blank','noopener');return}
+status('Přidávám do Google Kalendáře…');
+gAdd(p).then(function(){status('Túra je v Google Kalendáři.')}).catch(function(e){status('Google Kalendář selhal ('+e.message+').')})}
+
+// Návrhy tras ve městě
+var cityBusy=false;
+function dest(c,br,km){var t=Math.PI/180;return L.latLng(c.lat+km*Math.cos(br*t)/111.2,c.lng+km*Math.sin(br*t)/(111.2*Math.cos(c.lat*t)))}
+function bearing(a,b){var t=Math.PI/180,y=Math.sin((b.lng-a.lng)*t)*Math.cos(b.lat*t),x=Math.cos(a.lat*t)*Math.sin(b.lat*t)-Math.sin(a.lat*t)*Math.cos(b.lat*t)*Math.cos((b.lng-a.lng)*t);return(Math.atan2(y,x)/t+360)%360}
+function angDiff(a,b){var d=Math.abs(a-b)%360;return d>180?360-d:d}
+async function routeCalc(arr,type){
+var u=API+'/routing/route?apikey='+API_KEY+'&routeType='+type+'&format=geojson&lang=cs&start='+ll(arr[0])+'&end='+ll(arr[arr.length-1]);
+for(var i=1;i<arr.length-1;i++)u+='&waypoints='+ll(arr[i]);
+var r=await fetch(u);if(!r.ok)throw new Error('HTTP '+r.status);
+var d=await r.json();return{len:d.length,dur:d.duration}}
+async function cityPois(c){
+var a='(around:9000,'+c.lat.toFixed(5)+','+c.lng.toFixed(5)+')';
+var q='[out:json][timeout:25];(node["natural"="peak"]'+a+';nwr["tower:type"="observation"]'+a+';node["tourism"="viewpoint"]'+a+';);out center tags 200;';
+var d=await fetchOverpass(q),seen={},out=[];
+(d.elements||[]).forEach(function(e){
+var t=e.tags||{},lat=e.lat!==undefined?e.lat:e.center&&e.center.lat,lon=e.lon!==undefined?e.lon:e.center&&e.center.lon;
+if(!t.name||lat===undefined||seen[t.name])return;
+var ll0=L.latLng(lat,lon),km=hav([c.lat,c.lng],[lat,lon])/1000;
+if(km<1.5||km>9)return;
+seen[t.name]=1;out.push({name:t.name,ll:ll0,km:km,br:bearing(c,ll0)})});
+out.sort(function(x,y){return x.km-y.km});
+var pick=[];
+out.forEach(function(o){if(pick.length<3&&pick.every(function(p){return angDiff(p.br,o.br)>=55}))pick.push(o)});
+return pick}
+async function genCity(){
+if(cityBusy)return;
+var q=$('cityQ').value.trim();if(!q)return;
+cityBusy=true;var ul=$('cityList'),m=$('cityMsg'),poiFail='';ul.innerHTML='';
+try{
+m.textContent='Hledám „'+q+'“…';
+var c=await geo(q);map.setView(c,12);
+m.textContent='Hledám zajímavá místa v okolí…';
+var tg=[];try{tg=await cityPois(c)}catch(e){poiFail=' Zajímavá místa se nepodařilo načíst ('+e.message+'), proto jen okruhy.'}
+var cands=[];
+tg.forEach(function(t){cands.push({name:q+' → '+t.name,wp:[c,t.ll],note:'jedním směrem'})});
+if(tg.length>=2)cands.push({name:'Okruh přes '+tg[0].name+' a '+tg[1].name,wp:[c,tg[0].ll,tg[1].ll,c],note:'okruh'});
+[6,12].forEach(function(L0){
+var b0=Math.floor(Math.random()*360),r=L0/7;
+cands.push({name:'Okruh kolem '+q+' (cca '+L0+' km)',wp:[c,dest(c,b0,r),dest(c,b0+120,r),dest(c,b0+240,r),c],note:'okruh'})});
+var n=0;
+for(var i=0;i<cands.length;i++){
+m.textContent='Počítám trasy po stezkách ('+(i+1)+' z '+cands.length+')…';
+var cd=cands[i],res;
+try{res=await routeCalc(cd.wp,'foot_hiking')}catch(e){continue}
+n++;
+var li=document.createElement('li');li.style.display='block';
+var t=document.createElement('b');t.textContent=cd.name;
+var d=document.createElement('div');d.className='hint';d.style.margin='2px 0 6px';
+d.textContent=(res.len/1000).toFixed(1).replace('.',',')+' km · '+fmt(res.dur)+' · '+cd.note;
+var bt=document.createElement('button');bt.textContent='Načíst na mapu';
+(function(cd){bt.onclick=function(){
+closeTools();
+fixed=false;fixedEle=null;pts=cd.wp.slice();$('type').value='foot_hiking';$('nm').value=cd.name;mk();
+window.scrollTo({top:0,behavior:'smooth'});
+plan().then(function(){if(line)map.fitBounds(line.getBounds(),{padding:[30,30]})})}})(cd);
+li.append(t,d,bt);ul.append(li)}
+m.textContent=n?'Hotovo: '+n+' návrhů. Trasy jsou jen návrhy, před výletem je zkontroluj.'+poiFail:'Trasy se nepodařilo spočítat. Zkus to za chvíli.'+poiFail
+}catch(e){m.textContent='Nepodařilo se ('+e.message+').'}
+finally{cityBusy=false}}
+$('cityBtn').onclick=genCity;
+$('cityQ').addEventListener('keydown',function(e){if(e.key==='Enter')genCity()});
+
+// Plány, kalendář a upozornění
+var PK='plany-mapy',FK='plany-fired',calSel=null,t0=new Date(),calY=t0.getFullYear(),calM=t0.getMonth();
+var PL=[],allProf=[];
+function sharedMode(){return !!(sb&&okUser())}
+function lpLocal(){try{return JSON.parse(localStorage.getItem(PK)||'[]')}catch(e){return[]}}
+function lp(){return sharedMode()?PL:lpLocal()}
+function sp(a){if(sharedMode())return;try{localStorage.setItem(PK,JSON.stringify(a))}catch(e){}}
+function remMap(){try{return JSON.parse(localStorage.getItem('plany-rem')||'{}')}catch(e){return{}}}
+function remGet(id){return remMap()[id]}
+function setRem(id,r){var m=remMap();m[id]=r;try{localStorage.setItem('plany-rem',JSON.stringify(m))}catch(e){}}
+function gidGet(id){try{return JSON.parse(localStorage.getItem('plany-gid')||'{}')[id]}catch(e){return undefined}}
+function gidSet(id,g){try{var m=JSON.parse(localStorage.getItem('plany-gid')||'{}');m[id]=g;localStorage.setItem('plany-gid',JSON.stringify(m))}catch(e){}}
+function pname2(x){var a=Array.isArray(x)?x[0]:x;return a&&a.name?a.name:'neznámý'}
+function planFromRow(h){
+var st=new Date(h.starts_at),rs=(h.rsvps||[]).map(function(r){return{user_id:r.user_id,status:r.status,name:pname2(r.profiles)}});
+var mine=rs.filter(function(r){return me&&r.user_id===me.id})[0];
+return{shared:true,id:h.id,name:h.name,type:h.route_type,pts:h.pts,when:dkey(st)+'T'+pad(st.getHours())+':'+pad(st.getMinutes()),
+dur:h.dur_s,len:h.len_m,note:h.note,created_by:h.created_by,author:pname2(h.profiles),rsvps:rs,my:mine?mine.status:null,
+gid:gidGet(h.id),rem:mine&&mine.status==='going'?(remGet(h.id)||[1440,120]):[]}}
+async function loadPlans(){
+if(!sharedMode()){PL=[];allProf=[];drawCal();return}
+var r=await sb.from('hikes').select('id,name,starts_at,route_type,len_m,dur_s,pts,note,created_by,route_id,profiles(name),rsvps(user_id,status,profiles(name))').order('starts_at',{ascending:true});
+if(r.error){status('Túry se nepodařilo načíst ('+r.error.message+').');return}
+PL=(r.data||[]).map(planFromRow);
+var pr=await sb.from('profiles').select('id,name,approved,is_admin');
+allProf=(pr.data||[]).filter(function(u){return u.approved||u.is_admin});
+drawCal();checkPlans()}
+function pad(n){return('0'+n).slice(-2)}
+function dkey(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+(function(){var t=new Date();t.setDate(t.getDate()+1);$('pWhen').value=dkey(t)+'T08:00'})();
+
+// Okno „Nová túra“: název, datum a trasa (z mapy, z uložených nebo z knihovny)
+function ptsLen(a){var t=0;for(var i=1;i<a.length;i++)t+=hav(a[i-1],a[i]);return t}
+function routeOf(v){
+if(v==='cur')return pts.length>=2?{type:$('type').value,pts:pts.map(function(p){return[p.lat,p.lng]}),len:info.len||0,dur:info.dur||0}:null;
+if(v.indexOf('l:')===0){var x=load()[+v.slice(2)];return x?{type:x.type,pts:x.pts,len:x.len||ptsLen(x.pts),dur:x.dur||0}:null}
+if(v.indexOf('r:')===0){var y=libData.filter(function(r){return r.id===v.slice(2)})[0];return y?{type:y.route_type,pts:y.pts,len:y.len_m,dur:y.dur_s,rid:y.id}:null}
+return null}
+function routeInfoTxt(){
+var r=routeOf($('pRoute').value);
+$('pRouteInfo').textContent=r?'Délka '+(r.len/1000).toFixed(1).replace('.',',')+' km'+(r.dur?', odhad '+fmt(r.dur):''):''}
+function fillRoutes(){
+var sel=$('pRoute'),n=0;sel.innerHTML='';
+function grp(t){var g=document.createElement('optgroup');g.label=t;return g}
+function opt(g,v,t){var o=document.createElement('option');o.value=v;o.textContent=t;g.append(o);n++}
+if(pts.length>=2&&info.len){var g1=grp('Z mapy');opt(g1,'cur','Trasa na mapě ('+(info.len/1000).toFixed(1).replace('.',',')+' km)');sel.append(g1)}
+var loc=load();
+if(loc.length){var g2=grp('Moje uložené trasy');loc.forEach(function(x,i){opt(g2,'l:'+i,x.name)});sel.append(g2)}
+if(libData.length){var g3=grp('Knihovna tras');libData.forEach(function(x){opt(g3,'r:'+x.id,x.name+' ('+(x.len_m/1000).toFixed(1).replace('.',',')+' km)')});sel.append(g3)}
+if(!n){var o=document.createElement('option');o.value='';o.textContent='Zatím nemáš žádnou trasu. Nakresli ji na mapě.';sel.append(o)}
+routeInfoTxt()}
+function closeHike(){$('hikeModal').hidden=true}
+$('pNew').onclick=function(){
+fillRoutes();updWeather();$('pName').value=$('nm').value||'';$('pMsg').textContent='';
+$('hikeModal').hidden=false;setTimeout(function(){$('pName').focus()},50)};
+$('pRoute').onchange=function(){routeInfoTxt();updWeather()};
+$('pCancel').onclick=closeHike;
+$('hikeModal').addEventListener('click',function(e){if(e.target===$('hikeModal'))closeHike()});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('hikeModal').hidden)closeHike()});
+$('pAdd').onclick=async function(){
+var nm=$('pName').value.trim(),w=$('pWhen').value,rt=routeOf($('pRoute').value),m=$('pMsg');
+if(!nm){m.textContent='Zadej název túry.';return}
+if(!w){m.textContent='Zadej datum a čas túry.';return}
+if(!rt){m.textContent='Vyber trasu, nebo ji nejdřív nakresli na mapě.';return}
+var rem=[];[['r1440',1440],['r120',120],['r30',30]].forEach(function(k){if($(k[0]).checked)rem.push(k[1])});
+var np={id:Date.now(),name:nm,type:rt.type,pts:rt.pts,when:w,rem:rem,dur:rt.dur||0,len:rt.len||0};
+if(sharedMode()){
+m.textContent='Ukládám…';
+var ins=await sb.from('hikes').insert({name:nm,starts_at:new Date(w).toISOString(),route_type:rt.type,len_m:Math.round(rt.len||0),dur_s:Math.round(rt.dur||0),pts:rt.pts,route_id:rt.rid||null}).select('id').single();
+if(ins.error){m.textContent='Uložení se nepovedlo: '+ins.error.message;return}
+np.id=ins.data.id;np.shared=true;
+await sb.from('rsvps').upsert({hike_id:np.id,user_id:me.id,status:'going'},{onConflict:'hike_id,user_id'});
+setRem(np.id,rem);closeHike();await loadPlans()}
+else{var a=lpLocal();a.push(np);sp(a);closeHike()}
+var d=new Date(w);calY=d.getFullYear();calM=d.getMonth();calSel=dkey(d);drawCal();
+status(sharedMode()?'Túra je ve sdíleném kalendáři.':'Túra naplánována.');
+if(GOOGLE_CLIENT_ID&&$('gAuto').checked)gAdd(np).then(function(){status('Túra je naplánována a přidána do Google Kalendáře.')}).catch(function(e){status('Túra je naplánována, ale Google Kalendář selhal ('+e.message+').')})};
+
+function isAdminMe(){return !!(myProf&&myProf.is_admin)}
+function canDel(p){return !p.shared||(me&&(p.created_by===me.id||isAdminMe()))}
+async function delPlan(p){
+if(!p.shared){gDel(p);sp(lpLocal().filter(function(x){return x.id!==p.id}));drawCal();return}
+if(!confirm('Smazat túru „'+p.name+'“ pro všechny?'))return;
+try{
+var ph=await sb.from('hike_photos').select('path').eq('hike_id',p.id);
+if(ph.data&&ph.data.length)await sb.storage.from('hike-photos').remove(ph.data.map(function(x){return x.path}))}catch(e){}
+gDel(p);
+var r=await sb.from('hikes').delete().eq('id',p.id);
+if(r.error)status('Smazání se nepovedlo ('+r.error.message+').');
+loadPlans()}
+async function setRsvp(p,st){
+var r=await sb.from('rsvps').upsert({hike_id:p.id,user_id:me.id,status:st,updated_at:new Date().toISOString()},{onConflict:'hike_id,user_id'});
+if(r.error){status('Odpověď se nepovedla ('+r.error.message+').');return}
+if(st==='going'&&!remGet(p.id))setRem(p.id,[1440,120]);
+await loadPlans()}
+function rsvpBox(p,past){
+var box=document.createElement('div');box.className='rsvp';box.style.width='100%';
+var go=p.rsvps.filter(function(r){return r.status==='going'}).map(function(r){return r.name}),
+no=p.rsvps.filter(function(r){return r.status==='not_going'}).map(function(r){return r.name}),ans={};
+p.rsvps.forEach(function(r){ans[r.user_id]=1});
+var wait=allProf.filter(function(u){return !ans[u.id]});
+var t=document.createElement('div');t.className='hint';t.style.margin='4px 0';
+t.textContent='Vytvořil(a): '+p.author+' · Jde ('+go.length+'): '+(go.join(', ')||'zatím nikdo')+(no.length?' · Nejde ('+no.length+'): '+no.join(', '):'')+
+' · Bez odpovědi'+(isAdminMe()?' ('+wait.length+'): '+(wait.map(function(u){return u.name}).join(', ')||'nikdo'):': '+wait.length);
+box.append(t);
+if(!past){
+[['going','Půjdu'],['not_going','Nepůjdu']].forEach(function(k){
+var b=document.createElement('button');b.textContent=k[1];if(p.my===k[0])b.className='on';
+b.onclick=function(){setRsvp(p,k[0])};box.append(b,' ')})}
+return box}
+function wxBox(p){
+var el=document.createElement('div');el.className='hint';el.style.cssText='width:100%;margin:2px 0 0';
+var days=(new Date(p.when)-Date.now())/86400000;
+if(days>16||days<-1)return el;
+getWeather(p.pts[0][0],p.pts[0][1]).then(function(d){
+var r=weatherLine(d,p.when.slice(0,10),+p.when.slice(11,13));
+el.textContent=r?r.line+(r.warn?' ⚠️ '+r.warn:''):''}).catch(function(){});
+return el}
+
+function drawCal(){
+var a=lp(),by={};
+a.forEach(function(p){var k=p.when.slice(0,10);(by[k]=by[k]||[]).push(p)});
+$('calTitle').textContent=new Date(calY,calM,1).toLocaleDateString('cs-CZ',{month:'long',year:'numeric'});
+var g=$('calGrid');g.innerHTML='';
+['Po','Út','St','Čt','Pá','So','Ne'].forEach(function(n){var h=document.createElement('div');h.className='dow';h.textContent=n;g.append(h)});
+var off=(new Date(calY,calM,1).getDay()+6)%7,days=new Date(calY,calM+1,0).getDate(),today=dkey(new Date()),i;
+for(i=0;i<off;i++)g.append(document.createElement('div'));
+for(i=1;i<=days;i++)(function(d){
+var k=calY+'-'+pad(calM+1)+'-'+pad(d),b=document.createElement('button');
+b.className='day'+(by[k]?' has':'')+(k===today?' today':'')+(k===calSel?' sel':'');
+b.textContent=d;b.onclick=function(){calSel=calSel===k?null:k;drawCal()};g.append(b)})(i);
+var ul=$('plist');ul.innerHTML='';
+var items=calSel?(by[calSel]||[]):a.filter(function(p){return new Date(p.when).getTime()>Date.now()});
+items.sort(function(x,y){return x.when<y.when?-1:1});
+if(!items.length){var e=document.createElement('li');e.className='hint';e.textContent=calSel?'Tento den není naplánovaná žádná túra.':'Žádné nadcházející túry.';ul.append(e);return}
+items.forEach(function(p){
+var li=document.createElement('li'),d=new Date(p.when),past=d.getTime()<Date.now();
+var sp1=document.createElement('span');
+sp1.textContent=d.toLocaleDateString('cs-CZ',{day:'numeric',month:'numeric'})+' '+pad(d.getHours())+':'+pad(d.getMinutes())+' · '+p.name+' ('+(p.len/1000).toFixed(1).replace('.',',')+' km)';
+var w=document.createElement('span');
+var b1=document.createElement('button');b1.textContent='Otevřít';
+b1.onclick=function(){fixed=p.pts.length>30;fixedEle=null;pts=p.pts.map(function(q){return L.latLng(q[0],q[1])});$('type').value=p.type;$('nm').value=p.name;mk();plan().then(function(){if(line)map.fitBounds(line.getBounds(),{padding:[30,30]})})};
+w.append(b1);
+if(past&&p.shared){var bp=document.createElement('button');bp.textContent='📖 Fotky';bp.onclick=function(){histOpen[p.id]=true;openTool('toolHist')};w.append(' ',bp)}
+if(!past){var b4=document.createElement('button');b4.textContent='Do Google';b4.onclick=function(){gSend(p)};w.append(' ',b4)}
+if(canDel(p)){var b3=document.createElement('button');b3.textContent='Smazat';b3.onclick=function(){delPlan(p)};w.append(' ',b3)}
+li.append(sp1,w);
+if(p.shared)li.append(rsvpBox(p,past));
+if(!past)li.append(wxBox(p));
+ul.append(li)})}
+$('calPrev').onclick=function(){calM--;if(calM<0){calM=11;calY--}drawCal()};
+$('calNext').onclick=function(){calM++;if(calM>11){calM=0;calY++}drawCal()};
+$('calAll').onclick=function(){calSel=null;drawCal()};
+
+function notify(msg){
+$('bannerTxt').textContent=msg;$('banner').hidden=false;status(msg);
+try{if(window.Notification&&Notification.permission==='granted')new Notification('Túra',{body:msg})}catch(e){}}
+$('bannerX').onclick=function(){$('banner').hidden=true};
+$('notif').onclick=function(){
+if(!window.Notification){status('Tento prohlížeč upozornění nepodporuje.');return}
+Notification.requestPermission().then(function(r){status(r==='granted'?'Upozornění povolena.':'Upozornění nejsou povolena.')})};
+function checkPlans(){
+var fired;try{fired=JSON.parse(localStorage.getItem(FK)||'{}')}catch(e){fired={}}
+var n=Date.now(),ch=false;
+lp().forEach(function(p){
+var st=new Date(p.when).getTime();
+(p.rem||[]).forEach(function(m){
+var key=p.id+'-'+m;
+if(n>=st-m*60000&&n<st&&!fired[key]){
+fired[key]=1;ch=true;
+notify((m>=1440?'Zítra':m>=60?'Za '+m/60+' h':'Za '+m+' min')+': '+p.name+' ('+pad(new Date(st).getHours())+':'+pad(new Date(st).getMinutes())+')')}})});
+if(ch){try{localStorage.setItem(FK,JSON.stringify(fired))}catch(e){}}}
+setInterval(checkPlans,60000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden){checkPlans();loadPlans()}});
+setInterval(function(){if(!document.hidden&&sharedMode())loadPlans()},90000);
+drawCal();checkPlans();
+
+// Zjednodušení trasy (Douglas-Peucker) pro import GPX a převod na upravitelnou trasu
+function rdpIdx(P,eps){
+var n=P.length,keep=new Uint8Array(n),st=[[0,n-1]],k=Math.cos(P[0][0]*Math.PI/180),i;
+keep[0]=1;keep[n-1]=1;
+function dist(p,a,b){
+var px=p[1]*k,py=p[0],ax=a[1]*k,ay=a[0],bx=b[1]*k,by=b[0],dx=bx-ax,dy=by-ay,l=dx*dx+dy*dy;
+if(!l)return Math.hypot(px-ax,py-ay);
+var t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/l));
+return Math.hypot(px-(ax+t*dx),py-(ay+t*dy))}
+while(st.length){
+var r=st.pop(),a=r[0],b=r[1],mx=0,mi=-1;
+for(i=a+1;i<b;i++){var d=dist(P[i],P[a],P[b]);if(d>mx){mx=d;mi=i}}
+if(mi>0&&mx>eps){keep[mi]=1;st.push([a,mi],[mi,b])}}
+var out=[];for(i=0;i<n;i++)if(keep[i])out.push(i);return out}
+function simplifyTo(P,maxN){
+if(P.length<=maxN)return P.map(function(_,i){return i});
+var lo=0,hi=0.05,best=null,t;
+for(t=0;t<18;t++){var mid=(lo+hi)/2,r=rdpIdx(P,mid);if(r.length>maxN)lo=mid;else{hi=mid;best=r}}
+return best||rdpIdx(P,hi)}
+function smoothArr(a){return a.map(function(_,i){var s=0,c=0;for(var j=Math.max(0,i-2);j<=Math.min(a.length-1,i+2);j++){s+=a[j];c++}return s/c})}
+
+// Import GPX
+$('gpxIn').onclick=function(){$('gpxFile').click()};
+$('gpxFile').onchange=async function(){
+var f=this.files[0];this.value='';if(!f)return;
+try{
+var x=new DOMParser().parseFromString(await f.text(),'application/xml');
+if(x.getElementsByTagName('parsererror').length)throw new Error('soubor není platné GPX');
+var kind='trkpt',els=x.getElementsByTagName('trkpt');
+if(!els.length){kind='rtept';els=x.getElementsByTagName('rtept')}
+if(!els.length){kind='wpt';els=x.getElementsByTagName('wpt')}
+if(els.length<2)throw new Error('v souboru nejsou body trasy');
+var P=[],E=[],i;
+for(i=0;i<els.length;i++){
+var e=els[i],z=e.getElementsByTagName('ele')[0];
+P.push([+e.getAttribute('lat'),+e.getAttribute('lon')]);E.push(z?parseFloat(z.textContent):NaN)}
+var trk=x.getElementsByTagName('trk')[0]||x.getElementsByTagName('rte')[0],nmEl=trk&&trk.getElementsByTagName('name')[0];
+var idx=simplifyTo(P,kind==='wpt'?25:400);
+pts=idx.map(function(k){return L.latLng(P[k][0],P[k][1])});
+fixed=kind!=='wpt'&&P.length>25;
+fixedEle=fixed&&idx.every(function(k){return !isNaN(E[k])})?smoothArr(idx.map(function(k){return E[k]})):null;
+$('nm').value=(nmEl&&nmEl.textContent.trim())||f.name.replace(/\.(gpx|xml)$/i,'');
+mk();await plan();
+if(line)map.fitBounds(line.getBounds(),{padding:[30,30]});
+status('GPX načteno ('+P.length+' bodů'+(fixed?', zjednodušeno na '+pts.length:'')+').')
+}catch(e){status('GPX se nepodařilo načíst ('+e.message+').')}};
+$('bUnfix').onclick=function(){
+if(!fixed)return;
+var P=pts.map(function(p){return[p.lat,p.lng]}),idx=simplifyTo(P,12);
+pts=idx.map(function(k){return pts[k]});fixed=false;fixedEle=null;mk();plan()};
+
+// Otočit trasu a tam a zpět
+$('bRev').onclick=function(){
+if(pts.length<2){status('Nejdřív přidej trasu.');return}
+pts.reverse();if(fixedEle)fixedEle.reverse();mk();plan()};
+$('bBack').onclick=function(){
+if(pts.length<2){status('Nejdřív přidej trasu.');return}
+if(hav([pts[0].lat,pts[0].lng],[pts[pts.length-1].lat,pts[pts.length-1].lng])<50){status('Trasa už je okruh.');return}
+pts=pts.concat(pts.slice(0,-1).reverse());
+if(fixedEle)fixedEle=fixedEle.concat(fixedEle.slice(0,-1).reverse());
+mk();plan()};
+
+// Počasí (Open-Meteo, bez klíče)
+var WCACHE={};
+async function getWeather(lat,lon){
+var k=lat.toFixed(2)+','+lon.toFixed(2),c=WCACHE[k];
+if(c&&Date.now()-c.t<1800000)return c.d;
+var u='https://api.open-meteo.com/v1/forecast?latitude='+lat.toFixed(4)+'&longitude='+lon.toFixed(4)+'&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&hourly=temperature_2m,weather_code&timezone=auto&forecast_days=16&wind_speed_unit=kmh';
+var r=await fetch(u);if(!r.ok)throw new Error('HTTP '+r.status);
+var d=await r.json();WCACHE[k]={t:Date.now(),d:d};return d}
+function wcode(c){
+if(c===0)return['☀️','jasno'];if(c===1)return['🌤','skoro jasno'];if(c===2)return['⛅','polojasno'];if(c===3)return['☁️','zataženo'];
+if(c===45||c===48)return['🌫','mlha'];if(c>=51&&c<=57)return['🌦','mrholení'];if(c>=61&&c<=67)return['🌧','déšť'];
+if(c>=71&&c<=77)return['🌨','sněžení'];if(c>=80&&c<=82)return['🌦','přeháňky'];if(c===85||c===86)return['🌨','sněhové přeháňky'];
+if(c>=95)return['⛈','bouřka'];return['🌡','proměnlivo']}
+function weatherLine(d,dateStr,hh){
+var i=d.daily.time.indexOf(dateStr);if(i<0)return null;
+var hi=d.hourly.time.indexOf(dateStr+'T'+pad(hh)+':00');
+var wc=hi>=0?d.hourly.weather_code[hi]:d.daily.weather_code[i],w=wcode(wc);
+var tmax=Math.round(d.daily.temperature_2m_max[i]),tmin=Math.round(d.daily.temperature_2m_min[i]);
+var pp=d.daily.precipitation_probability_max[i],mm=d.daily.precipitation_sum[i],wind=Math.round(d.daily.wind_speed_10m_max[i]);
+var sr=d.daily.sunrise[i].slice(11),ss=d.daily.sunset[i].slice(11);
+var warn=[];
+if(wind>=40)warn.push('silný vítr');
+if(pp>=60)warn.push('vysoká pravděpodobnost deště');
+if(d.daily.weather_code[i]>=95)warn.push('bouřky');
+if(tmin<=0)warn.push('mráz, možná náledí');
+if(tmax>=30)warn.push('horko, vezmi víc vody');
+return{line:w[0]+' '+w[1]+', '+tmax+'/'+tmin+' °C'+(hi>=0?' (v '+hh+':00 asi '+Math.round(d.hourly.temperature_2m[hi])+' °C)':'')+', srážky '+(pp===null?'?':pp)+' % ('+mm+' mm), vítr do '+wind+' km/h, slunce '+sr+'–'+ss,warn:warn.join(', ')}}
+async function updWeather(){
+var el=$('pWeather');el.textContent='';
+var rt=routeOf($('pRoute').value),w=$('pWhen').value;
+if(!rt||!w)return;
+var d0=new Date(w),days=(d0-Date.now())/86400000;
+if(days>16){el.textContent='Předpověď je k dispozici nejvýše 16 dní dopředu.';return}
+if(days<-1)return;
+el.textContent='Načítám počasí…';
+try{
+var d=await getWeather(rt.pts[0][0],rt.pts[0][1]),r=weatherLine(d,dkey(d0),d0.getHours());
+if($('pWhen').value!==w)return;
+el.textContent=r?r.line+(r.warn?' ⚠️ '+r.warn:''):'Pro tento den není předpověď.'
+}catch(e){el.textContent='Počasí se nepodařilo načíst.'}}
+$('pWhen').addEventListener('change',updWeather);
+$('pWhen').addEventListener('input',updWeather);
+
+// Instalace na plochu (PWA)
+var deferredInstall=null;
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();deferredInstall=e;$('bInstall').hidden=false});
+window.addEventListener('appinstalled',function(){$('bInstall').hidden=true;deferredInstall=null});
+(function(){
+var ios=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+var sa=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+if(ios&&!sa)$('bInstall').hidden=false})();
+$('bInstall').onclick=function(){
+if(deferredInstall){deferredInstall.prompt();deferredInstall.userChoice.then(function(){deferredInstall=null;$('bInstall').hidden=true})}
+else $('iosModal').hidden=false};
+$('iosClose').onclick=function(){$('iosModal').hidden=true};
+$('iosModal').addEventListener('click',function(e){if(e.target===$('iosModal'))$('iosModal').hidden=true});
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(function(){});
+
+// Historie túr a fotky
+var histOpen={};
+function resizeImg(file,max){return new Promise(function(ok,no){
+var img=new Image(),u=URL.createObjectURL(file);
+img.onload=function(){
+var k=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');
+c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);
+c.toBlob(function(b){b?ok(b):no(new Error('převod se nepovedl'))},'image/jpeg',0.82)};
+img.onerror=function(){URL.revokeObjectURL(u);no(new Error('soubor není obrázek'))};img.src=u})}
+async function uploadPhotos(p,files){
+var ok=0,msg=$('histMsg');
+for(var i=0;i<files.length;i++){
+msg.textContent='Nahrávám '+(i+1)+' z '+files.length+'…';
+try{
+var b=await resizeImg(files[i],1600),path=p.id+'/'+me.id+'_'+(window.crypto&&crypto.randomUUID?crypto.randomUUID():Date.now()+'_'+i)+'.jpg';
+var u=await sb.storage.from('hike-photos').upload(path,b,{contentType:'image/jpeg'});
+if(u.error)throw u.error;
+var r=await sb.from('hike_photos').insert({hike_id:p.id,path:path});
+if(r.error){await sb.storage.from('hike-photos').remove([path]);throw r.error}
+ok++
+}catch(e){msg.textContent='Chyba u „'+files[i].name+'“: '+(e.message||e);return renderHist(true)}}
+histOpen[p.id]=true;
+await renderHist(true);$('histMsg').textContent='Nahráno fotek: '+ok+'.'}
+async function fillGallery(p,rows,box){
+box.innerHTML='';
+if(!rows.length){var h=document.createElement('div');h.className='hint';h.textContent='Zatím tu nejsou žádné fotky.';box.append(h);return}
+var r=await sb.storage.from('hike-photos').createSignedUrls(rows.map(function(x){return x.path}),3600);
+if(r.error){box.textContent='Fotky se nepodařilo načíst ('+r.error.message+').';return}
+var url={};(r.data||[]).forEach(function(x){url[x.path]=x.signedUrl});
+var gal=document.createElement('div');gal.className='gal';
+rows.forEach(function(x){
+if(!url[x.path])return;
+var c=document.createElement('div'),im=document.createElement('img');
+im.src=url[x.path];im.loading='lazy';im.alt='Fotka z túry '+p.name;
+im.onclick=function(){$('photoImg').src=url[x.path];$('photoModal').hidden=false};
+c.append(im);
+if(me&&(x.user_id===me.id||isAdminMe())){
+var d=document.createElement('button');d.className='x';d.textContent='✕';d.title='Smazat fotku';d.setAttribute('aria-label','Smazat fotku');
+d.onclick=async function(){
+if(!confirm('Smazat tuto fotku?'))return;
+await sb.storage.from('hike-photos').remove([x.path]);
+await sb.from('hike_photos').delete().eq('id',x.id);
+renderHist(true)};
+c.append(d)}
+gal.append(c)});
+box.append(gal)}
+async function renderHist(keepMsg){
+var ul=$('histList'),msg=$('histMsg');ul.innerHTML='';
+if(!keepMsg)msg.textContent='';
+var now=Date.now(),a=lp().filter(function(p){return new Date(p.when).getTime()<now}).sort(function(x,y){return x.when<y.when?1:-1});
+if(!sharedMode()&&!keepMsg)msg.textContent='Sdílené fotky z túr se zobrazí po přihlášení a schválení adminem.';
+if(!a.length){var e=document.createElement('li');e.className='hint';e.textContent='Zatím tu není žádná proběhlá túra.';ul.append(e);return}
+var rows={};
+if(sharedMode()){
+var r=await sb.from('hike_photos').select('id,hike_id,path,user_id').in('hike_id',a.map(function(p){return p.id})).order('created_at');
+(r.data||[]).forEach(function(x){(rows[x.hike_id]=rows[x.hike_id]||[]).push(x)})}
+a.forEach(function(p){
+var li=document.createElement('li');li.style.display='block';
+var d=new Date(p.when),t=document.createElement('b');
+t.textContent=d.toLocaleDateString('cs-CZ',{day:'numeric',month:'numeric',year:'numeric'})+' · '+p.name;
+var m=document.createElement('div');m.className='hint';m.style.margin='2px 0 6px';
+var go=p.shared?p.rsvps.filter(function(r){return r.status==='going'}).map(function(r){return r.name}):[];
+m.textContent=(p.len/1000).toFixed(1).replace('.',',')+' km'+(p.shared?' · Šli: '+(go.join(', ')||'nikdo'):'');
+li.append(t,m);
+if(p.shared){
+var rs=rows[p.id]||[],box=document.createElement('div');box.hidden=!histOpen[p.id];
+var bt=document.createElement('button');bt.textContent='Fotky ('+rs.length+')';
+var loaded=false;
+function open1(){box.hidden=false;if(!loaded){loaded=true;fillGallery(p,rs,box)}}
+bt.onclick=function(){if(box.hidden){histOpen[p.id]=true;open1()}else{box.hidden=true;histOpen[p.id]=false}};
+var fi=document.createElement('input');fi.type='file';fi.accept='image/*';fi.multiple=true;fi.hidden=true;
+fi.onchange=function(){var f=[].slice.call(fi.files);fi.value='';if(f.length)uploadPhotos(p,f)};
+var ba=document.createElement('button');ba.textContent='+ Přidat fotky';ba.style.marginLeft='6px';ba.onclick=function(){fi.click()};
+var bo=document.createElement('button');bo.textContent='Otevřít trasu';bo.className='ghost';bo.onclick=function(){
+closeTools();fixed=p.pts.length>30;fixedEle=null;pts=p.pts.map(function(q){return L.latLng(q[0],q[1])});$('type').value=p.type;$('nm').value=p.name;mk();plan().then(function(){if(line)map.fitBounds(line.getBounds(),{padding:[30,30]})})};
+li.append(bt,ba,bo,fi,box);
+if(histOpen[p.id])open1()}
+ul.append(li)})}
+$('photoClose').onclick=function(){$('photoModal').hidden=true;$('photoImg').src=''};
+$('photoModal').addEventListener('click',function(e){if(e.target===$('photoModal')){$('photoModal').hidden=true;$('photoImg').src=''}});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('photoModal').hidden){$('photoModal').hidden=true;$('photoImg').src=''}});
+
+// GPX ke stažení (funguje na vlastním hostingu)
+$('gpx').onclick=function(){
+if(!coords.length){status('Nejdřív naplánuj trasu.');return}
+var nm=$('nm').value||'Trasa',s='<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Trasy" xmlns="http://www.topografix.com/GPX/1/1">\n<trk><name>'+nm.replace(/[<>&"]/g,'')+'</name><trkseg>\n';
+coords.forEach(function(c){s+='<trkpt lat="'+c[0].toFixed(6)+'" lon="'+c[1].toFixed(6)+'"/>\n'});s+='</trkseg></trk>\n</gpx>';
+var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([s],{type:'application/gpx+xml'}));a.download=nm+'.gpx';a.click()};
+
+// ukládání v telefonu
+function load(){try{return JSON.parse(localStorage.getItem('trasy-mapy')||'[]')}catch(e){return[]}}
+function store(a){try{localStorage.setItem('trasy-mapy',JSON.stringify(a))}catch(e){}}
+function list(){var a=load(),ul=$('list');ul.innerHTML='';
+if(!a.length){ul.innerHTML='<li class="hint">Zatím nemáš žádné uložené trasy.</li>';return}
+a.forEach(function(t,i){var li=document.createElement('li'),sp=document.createElement('span');sp.textContent=t.name;
+var b1=document.createElement('button');b1.textContent='Otevřít';b1.onclick=function(){fixed=t.pts.length>30;fixedEle=null;pts=t.pts.map(function(p){return L.latLng(p[0],p[1])});$('type').value=t.type;$('nm').value=t.name;mk();plan()};
+var b2=document.createElement('button');b2.textContent='Smazat';b2.onclick=function(){var x=load();x.splice(i,1);store(x);list()};
+var w=document.createElement('span');w.append(b1,' ',b2);li.append(sp,w);ul.append(li)})}
+$('save').onclick=function(){if(pts.length<2){status('Nejdřív nakresli trasu.');return}
+var a=load();a.unshift({name:$('nm').value||'Trasa '+(a.length+1),type:$('type').value,len:info.len||0,dur:info.dur||0,pts:pts.map(function(p){return[p.lat,p.lng]})});store(a);list();status('Trasa uložena.')};
+list();show();
+</script>
+</body>
+</html>
