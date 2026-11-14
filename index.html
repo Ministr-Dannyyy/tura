@@ -945,7 +945,7 @@ dur:h.dur_s,len:h.len_m,note:h.note,created_by:h.created_by,author:pname2(h.prof
 gid:gidGet(h.id),rem:mine&&mine.status==='going'?(remGet(h.id)||[1440,120]):[]}}
 async function loadPlans(){
 if(!sharedMode()){PL=[];allProf=[];drawCal();return}
-var r=await sb.from('hikes').select('id,name,starts_at,route_type,len_m,dur_s,pts,note,created_by,route_id,profiles(name),rsvps(user_id,status,profiles(name))').order('starts_at',{ascending:true});
+var r=await sb.from('hikes').select('id,name,starts_at,route_type,len_m,dur_s,pts,note,created_by,route_id,profiles!created_by(name),rsvps(user_id,status,profiles(name))').order('starts_at',{ascending:true});
 if(r.error){status('Túry se nepodařilo načíst ('+r.error.message+').');return}
 PL=(r.data||[]).map(planFromRow);
 var pr=await sb.from('profiles').select('id,name,approved,is_admin');
