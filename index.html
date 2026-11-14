@@ -149,6 +149,7 @@ li:first-child{border-top:0}
 <h1>Túry<em>Plánovač tras po stezkách</em></h1>
 <div class="acct">
 <button id="bInstall" class="ghost" hidden>⬇ Nainstalovat</button>
+<button id="bNotif" class="ghost" hidden title="Upozornění na túry" aria-label="Upozornění na túry">🔔</button>
 <span id="accOut" hidden><b id="accName"></b> <button id="bLogout" class="ghost">Odhlásit</button></span>
 <span id="accLocal"><button id="bOpenLogin">Přihlásit se</button></span>
 </div>
@@ -197,6 +198,22 @@ li:first-child{border-top:0}
 <ul id="list" style="margin-top:8px"></ul>
 </details>
 </aside>
+</div>
+
+<div class="modal" id="notifModal" role="dialog" aria-modal="true" aria-labelledby="nTitle" hidden>
+<div class="box" style="max-width:420px">
+<h1 id="nTitle" style="font-size:22px;margin-bottom:6px">🔔 Upozornění na túry</h1>
+<p class="hint" style="margin:0 0 10px">Chodí ti u túr, u kterých jsi zvolil(a) Půjdu.</p>
+<div class="row" style="margin-top:0"><label class="chk2"><input type="checkbox" id="nEmail"> E-mailem</label></div>
+<div class="row"><label class="chk2"><input type="checkbox" id="nPush"> Do telefonu (na tomto zařízení)</label></div>
+<div class="row"><b style="font-size:13px">Kdy:</b>
+<label class="chk2"><input type="checkbox" id="n1440"> den předem</label>
+<label class="chk2"><input type="checkbox" id="n120"> 2 h předem</label>
+<label class="chk2"><input type="checkbox" id="n30"> 30 min předem</label></div>
+<p class="hint">Upozornění do telefonu na iPhonu fungují jen u aplikace přidané na plochu.</p>
+<p class="hint" id="nMsg" style="color:var(--acc);font-weight:600"></p>
+<div class="row"><button id="nSave" class="main">Uložit</button><button id="nClose" class="ghost">Zavřít</button></div>
+</div>
 </div>
 
 <div class="modal" id="iosModal" role="dialog" aria-modal="true" aria-labelledby="iosT" hidden>
@@ -718,7 +735,7 @@ $('toStart').textContent='Připraveno.'
 }catch(e){$('toStart').textContent='IDOS se nepodařilo připravit ('+e.message+').'}};
 
 // Účet a sdílená knihovna tras (Supabase). Bez vyplněné adresy a klíče běží aplikace jen lokálně.
-var SB_URL='https://jywoyoucpzdgaxbtrxzq.supabase.co',SB_KEY='sb_publishable_jApbIX6qw4Rkh47rRh76wA_WWmRILtE';   // sem vložte Project URL a anon (public) key
+var SB_URL='',SB_KEY='';   // sem vložte Project URL a anon (public) key
 var sb=(SB_URL&&SB_KEY&&window.supabase)?window.supabase.createClient(SB_URL,SB_KEY):null;
 var me=null,myProf=null,libData=[],skipped=false,sessionChecked=!sb;
 function accMsg(t){$('accMsg').textContent=t||''}
@@ -732,6 +749,7 @@ $('accOut').hidden=!me;$('accLocal').hidden=!!me;
 $('accName').textContent=me?((myProf&&myProf.name)||me.email)+(myProf&&myProf.is_admin?' (admin)':''):'';
 $('adminSec').hidden=!(myProf&&myProf.is_admin);
 $('btnShare').hidden=!sb;
+$('bNotif').hidden=!(sb&&okUser());
 if(show&&was&&sb&&!me)setTimeout(function(){$('aMail').focus()},50)}
 async function setUser(session){
 sessionChecked=true;me=session?session.user:null;myProf=null;
@@ -797,7 +815,7 @@ $('bRecheck').onclick=function(){sb.auth.getSession().then(function(r){setUser(r
 $('bLogout2').onclick=function(){sb.auth.signOut()};
 async function loadUsers(){
 if(!sb||!myProf||!myProf.is_admin)return;
-var r=await sb.from('profiles').select('id,name,email,approved,is_admin').order('approved').order('created_at',{ascending:false});
+var r=await sb.rpc('admin_users');
 var ul=$('userList');ul.innerHTML='';
 if(r.error){var e=document.createElement('li');e.className='hint';e.textContent='Uživatele se nepodařilo načíst ('+r.error.message+').';ul.append(e);return}
 var wait=0;
@@ -1205,6 +1223,47 @@ el.textContent=r?r.line+(r.warn?' ⚠️ '+r.warn:''):'Pro tento den není před
 }catch(e){el.textContent='Počasí se nepodařilo načíst.'}}
 $('pWhen').addEventListener('change',updWeather);
 $('pWhen').addEventListener('input',updWeather);
+
+// Upozornění e-mailem a do telefonu (posílá server, viz send-reminders)
+var VAPID_PUBLIC='BMu4E7PYKFQT7yUfOlBtDxBcCPpTyZS1ZeW10X_wioMZ3Bv11pZakRjSlpeI6x05NVqpKR3BfTTglqMlFQNlChM';   // veřejný klíč VAPID (generuje se podle návodu)
+function b64uToU8(b){
+var p='='.repeat((4-b.length%4)%4),s2=(b+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(s2),o=new Uint8Array(r.length);
+for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o}
+async function pushEnable(){
+if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('tento prohlížeč upozornění do telefonu nepodporuje (na iPhonu nejdřív přidej aplikaci na plochu)');
+if(!VAPID_PUBLIC)throw new Error('v aplikaci chybí veřejný klíč VAPID');
+var perm=await Notification.requestPermission();
+if(perm!=='granted')throw new Error('upozornění nejsou v prohlížeči povolena');
+var reg=await navigator.serviceWorker.ready;
+var sub=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uToU8(VAPID_PUBLIC)});
+var j=sub.toJSON();
+var r=await sb.from('push_subscriptions').upsert({user_id:me.id,endpoint:j.endpoint,p256dh:j.keys.p256dh,auth:j.keys.auth},{onConflict:'endpoint'});
+if(r.error)throw r.error}
+async function pushDisable(){
+if(!('serviceWorker' in navigator)||!('PushManager' in window))return;
+try{
+var reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();
+if(sub){await sb.from('push_subscriptions').delete().eq('endpoint',sub.endpoint);await sub.unsubscribe()}
+}catch(e){}}
+function nMsg(t){$('nMsg').textContent=t||''}
+$('bNotif').onclick=async function(){
+nMsg('');$('notifModal').hidden=false;
+var r=await sb.from('profiles').select('notify_email,notify_push,rem_minutes').eq('id',me.id).single();
+var d=r.data||{notify_email:true,notify_push:false,rem_minutes:[1440,120]},has=false;
+try{var reg=await navigator.serviceWorker.ready;has=!!(await reg.pushManager.getSubscription())}catch(e){}
+$('nEmail').checked=!!d.notify_email;$('nPush').checked=!!d.notify_push&&has;
+[1440,120,30].forEach(function(m){$('n'+m).checked=(d.rem_minutes||[]).indexOf(m)>=0})};
+$('nSave').onclick=async function(){
+var rem=[1440,120,30].filter(function(m){return $('n'+m).checked});
+nMsg('Ukládám…');
+try{
+if($('nPush').checked)await pushEnable();else await pushDisable();
+var r=await sb.from('profiles').update({notify_email:$('nEmail').checked,notify_push:$('nPush').checked,rem_minutes:rem}).eq('id',me.id);
+if(r.error)throw r.error;
+nMsg('Uloženo.')
+}catch(e){nMsg('Nepodařilo se: '+(e.message||e))}};
+$('nClose').onclick=function(){$('notifModal').hidden=true};
+$('notifModal').addEventListener('click',function(e){if(e.target===$('notifModal'))$('notifModal').hidden=true});
 
 // Instalace na plochu (PWA)
 var deferredInstall=null;
