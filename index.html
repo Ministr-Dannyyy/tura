@@ -735,7 +735,7 @@ $('toStart').textContent='Připraveno.'
 }catch(e){$('toStart').textContent='IDOS se nepodařilo připravit ('+e.message+').'}};
 
 // Účet a sdílená knihovna tras (Supabase). Bez vyplněné adresy a klíče běží aplikace jen lokálně.
-var SB_URL='https://jywoyoucpzdgaxbtrxzq.supabase.co/rest/v1/',SB_KEY='sb_publishable_jApbIX6qw4Rkh47rRh76wA_WWmRILtE';   // sem vložte Project URL a Publishable key (sb_publishable_...) z Supabase
+var SB_URL='https://jywoyoucpzdgaxbtrxzq.supabase.co',SB_KEY='sb_publishable_jApbIX6qw4Rkh47rRh76wA_WWmRILtE';   // sem vložte Project URL a Publishable key (sb_publishable_...) z Supabase
 var sb=(SB_URL&&SB_KEY&&window.supabase)?window.supabase.createClient(SB_URL,SB_KEY):null;
 var me=null,myProf=null,libData=[],skipped=false,sessionChecked=!sb;
 function accMsg(t){$('accMsg').textContent=t||''}
