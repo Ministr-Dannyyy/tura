@@ -1225,7 +1225,7 @@ $('pWhen').addEventListener('change',updWeather);
 $('pWhen').addEventListener('input',updWeather);
 
 // Upozornění e-mailem a do telefonu (posílá server, viz send-reminders)
-var VAPID_PUBLIC='';   // veřejný klíč VAPID (generuje se podle návodu)
+var VAPID_PUBLIC='BKw0pkKrDv7Ze0OrQu-gVfFOL3i0fAUXfJYIL7aqBeqb3DOSNVIm7_4eKF_h0GUarPor6RjlD-Ax9GSwGDa71dM';   // veřejný klíč VAPID (generuje se podle návodu)
 function b64uToU8(b){
 var p='='.repeat((4-b.length%4)%4),s2=(b+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(s2),o=new Uint8Array(r.length);
 for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o}
@@ -1254,13 +1254,15 @@ try{var reg=await navigator.serviceWorker.ready;has=!!(await reg.pushManager.get
 $('nEmail').checked=!!d.notify_email;$('nPush').checked=!!d.notify_push&&has;
 [1440,120,30].forEach(function(m){$('n'+m).checked=(d.rem_minutes||[]).indexOf(m)>=0})};
 $('nSave').onclick=async function(){
-var rem=[1440,120,30].filter(function(m){return $('n'+m).checked});
+var rem=[1440,120,30].filter(function(m){return $('n'+m).checked}),wantPush=$('nPush').checked,pushErr='';
 nMsg('Ukládám…');
 try{
-if($('nPush').checked)await pushEnable();else await pushDisable();
-var r=await sb.from('profiles').update({notify_email:$('nEmail').checked,notify_push:$('nPush').checked,rem_minutes:rem}).eq('id',me.id);
+if(wantPush){try{await pushEnable()}catch(e){pushErr=e.message||String(e)}}
+else await pushDisable();
+var r=await sb.from('profiles').update({notify_email:$('nEmail').checked,notify_push:wantPush&&!pushErr,rem_minutes:rem}).eq('id',me.id);
 if(r.error)throw r.error;
-nMsg('Uloženo.')
+if(pushErr){$('nPush').checked=false;nMsg('Nastavení e-mailu je uložené, ale upozornění do telefonu se nepodařilo zapnout: '+pushErr)}
+else nMsg('Uloženo.')
 }catch(e){nMsg('Nepodařilo se: '+(e.message||e))}};
 $('nClose').onclick=function(){$('notifModal').hidden=true};
 $('notifModal').addEventListener('click',function(e){if(e.target===$('notifModal'))$('notifModal').hidden=true});
