@@ -326,7 +326,7 @@ li:first-child{border-top:0}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.1"></script>
 <script>
 // Klíč v nastavení projektu na developer.mapy.com omezte jen na adresu, kde stránku hostujete.
 var API_KEY='_JVZQ61kZDu6Ur6IYHd_N40Ul9spaIFo2pRvzX5FDxI';
@@ -735,7 +735,7 @@ $('toStart').textContent='Připraveno.'
 }catch(e){$('toStart').textContent='IDOS se nepodařilo připravit ('+e.message+').'}};
 
 // Účet a sdílená knihovna tras (Supabase). Bez vyplněné adresy a klíče běží aplikace jen lokálně.
-var SB_URL='',SB_KEY='';   // sem vložte Project URL a anon (public) key
+var SB_URL='https://jywoyoucpzdgaxbtrxzq.supabase.co/rest/v1/',SB_KEY='sb_publishable_jApbIX6qw4Rkh47rRh76wA_WWmRILtE';   // sem vložte Project URL a Publishable key (sb_publishable_...) z Supabase
 var sb=(SB_URL&&SB_KEY&&window.supabase)?window.supabase.createClient(SB_URL,SB_KEY):null;
 var me=null,myProf=null,libData=[],skipped=false,sessionChecked=!sb;
 function accMsg(t){$('accMsg').textContent=t||''}
@@ -1225,7 +1225,7 @@ $('pWhen').addEventListener('change',updWeather);
 $('pWhen').addEventListener('input',updWeather);
 
 // Upozornění e-mailem a do telefonu (posílá server, viz send-reminders)
-var VAPID_PUBLIC='BMu4E7PYKFQT7yUfOlBtDxBcCPpTyZS1ZeW10X_wioMZ3Bv11pZakRjSlpeI6x05NVqpKR3BfTTglqMlFQNlChM';   // veřejný klíč VAPID (generuje se podle návodu)
+var VAPID_PUBLIC='';   // veřejný klíč VAPID (generuje se podle návodu)
 function b64uToU8(b){
 var p='='.repeat((4-b.length%4)%4),s2=(b+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(s2),o=new Uint8Array(r.length);
 for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o}
